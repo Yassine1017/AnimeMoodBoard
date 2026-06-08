@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #08070d;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 99, 125, 0.18), transparent 34rem),
+    radial-gradient(circle at 92% 8%, rgba(102, 227, 255, 0.13), transparent 30rem),
+    linear-gradient(180deg, #08070d 0%, #100b16 48%, #08070d 100%);
+  color: #f8f5ff;
+}
+
+::selection {
+  background: rgba(255, 99, 125, 0.36);
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
