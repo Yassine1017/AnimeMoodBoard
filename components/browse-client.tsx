@@ -135,9 +135,6 @@ export function BrowseClient() {
           <h1 className="mt-3 text-3xl font-semibold tracking-normal text-white sm:text-5xl">
             Find anime directly.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/62 sm:text-base">
-            Search titles, narrow the catalog, and open exact AniList results.
-          </p>
         </div>
         <div className="rounded-lg border border-line bg-white/[0.045] p-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
