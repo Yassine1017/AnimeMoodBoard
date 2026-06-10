@@ -47,6 +47,7 @@ The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, and profile/sa
 - Create a Supabase project.
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Enable anonymous sign-ins in Supabase Authentication if you want one-click saving before building a full login screen.
 - Add auth helpers for server/client sessions.
 - Gate profile persistence behind authenticated user IDs.
 

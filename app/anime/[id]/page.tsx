@@ -94,7 +94,7 @@ export default async function AnimeDetailPage({ params }: AnimeDetailPageProps) 
                 "No synopsis is available from AniList yet."}
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <SaveButton animeId={anime.id} />
+              <SaveButton anime={anime} />
               <ButtonLink href="/profile" variant="secondary">
                 Rate later
               </ButtonLink>

@@ -53,7 +53,7 @@ export function AnimeCard({ result, compact }: AnimeCardProps) {
               {title}
             </h2>
           </Link>
-          <SaveButton animeId={anime.id} compact />
+          <SaveButton anime={anime} compact />
         </div>
         <p className="mt-1 text-sm text-white/52">
           {anime.episodes ? `${anime.episodes} episodes` : "Episodes TBA"}

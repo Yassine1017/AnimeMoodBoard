@@ -107,6 +107,19 @@ create policy "Anime cache is readable by everyone"
 on public.anime_cache for select
 using (true);
 
+drop policy if exists "Authenticated users can insert anime cache" on public.anime_cache;
+create policy "Authenticated users can insert anime cache"
+on public.anime_cache for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Authenticated users can update anime cache" on public.anime_cache;
+create policy "Authenticated users can update anime cache"
+on public.anime_cache for update
+to authenticated
+using (true)
+with check (true);
+
 drop policy if exists "Users can read their saved anime" on public.saved_anime;
 create policy "Users can read their saved anime"
 on public.saved_anime for select
