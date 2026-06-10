@@ -1,4 +1,4 @@
-import { fetchAnimeByMoodFilters } from "@/lib/anilist";
+import { fetchAnimeByMoodFilters, searchAnime } from "@/lib/anilist";
 import { rerankAnimeWithOpenAI } from "@/lib/openai/recommendation-engine";
 import { createUserSupabaseClient } from "@/lib/supabase/user-server";
 import {
@@ -111,10 +111,12 @@ export async function getPersonalizedRecommendations(
   accessToken?: string
 ): Promise<RecommendationResponse> {
   const filters = moodToFilters(mood);
-  const [anime, tasteContext] = await Promise.all([
+  const [moodAnime, titleAnime, tasteContext] = await Promise.all([
     fetchWithFallbacks(filters, CANDIDATE_LIMIT),
+    searchAnimeByTitle(mood),
     getTasteContext(accessToken),
   ]);
+  const anime = mergeTitleAndMoodCandidates(mood, filters, titleAnime, moodAnime);
   const build = await buildRecommendations(mood, filters, anime, tasteContext.profile);
 
   if (tasteContext.userId) {
@@ -142,6 +144,58 @@ export async function getPersonalizedRecommendations(
       savedAnimeCount: tasteContext.profile?.savedAnimeCount ?? 0,
     },
   };
+}
+
+async function searchAnimeByTitle(mood: string) {
+  try {
+    return await searchAnime(mood);
+  } catch {
+    return [];
+  }
+}
+
+function mergeTitleAndMoodCandidates(
+  mood: string,
+  filters: MoodFilters,
+  titleAnime: Anime[],
+  moodAnime: Anime[]
+) {
+  const titleCandidates = getTitleCandidates(mood, filters, titleAnime);
+
+  if (!titleCandidates.length) {
+    return moodAnime;
+  }
+
+  return uniqueAnime([...titleCandidates, ...moodAnime]);
+}
+
+function getTitleCandidates(
+  mood: string,
+  filters: MoodFilters,
+  titleAnime: Anime[]
+) {
+  if (!titleAnime.length) {
+    return [];
+  }
+
+  const query = normalizeTitle(mood);
+  const hasMoodKeywords = !sameItems(filters.labels, defaultFilters.labels);
+  const exactMatches = titleAnime.filter((anime) =>
+    animeTitleValues(anime).some((title) => {
+      const normalized = normalizeTitle(title);
+      return normalized === query || normalized.includes(query);
+    })
+  );
+
+  if (exactMatches.length) {
+    return exactMatches;
+  }
+
+  if (!hasMoodKeywords && query.length >= 3) {
+    return titleAnime;
+  }
+
+  return [];
 }
 
 async function buildRecommendations(
@@ -434,6 +488,44 @@ function normalizeCachedAnime(
   anime: CachedAnimeRow | CachedAnimeRow[] | null
 ) {
   return Array.isArray(anime) ? anime[0] : anime;
+}
+
+function uniqueAnime(anime: Anime[]) {
+  const seenIds = new Set<number>();
+  const results: Anime[] = [];
+
+  for (const item of anime) {
+    if (seenIds.has(item.id)) {
+      continue;
+    }
+
+    seenIds.add(item.id);
+    results.push(item);
+  }
+
+  return results;
+}
+
+function animeTitleValues(anime: Anime) {
+  return [anime.title.english, anime.title.romaji, anime.title.native].filter(
+    (title): title is string => Boolean(title)
+  );
+}
+
+function normalizeTitle(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function sameItems(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item) => right.includes(item));
 }
 
 function buildReason(anime: Anime, filters: MoodFilters): string {

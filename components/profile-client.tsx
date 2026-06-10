@@ -358,6 +358,11 @@ export function ProfileClient() {
       return;
     }
 
+    if (rating !== null && !canRateAnime(item)) {
+      setError(getRatingLockMessage(item));
+      return;
+    }
+
     const previous = savedAnime;
     setSavedAnime((current) =>
       current.map((entry) =>
@@ -795,6 +800,7 @@ function SavedAnimeCard({
     item.progressEpisode && item.anime.episodes
       ? Math.min(100, Math.round((item.progressEpisode / item.anime.episodes) * 100))
       : 0;
+  const canRate = canRateAnime(item);
 
   return (
     <article className="overflow-hidden rounded-lg border border-line bg-white/[0.045]">
@@ -916,8 +922,10 @@ function SavedAnimeCard({
                 key={rating}
                 type="button"
                 onClick={() => onRate(item, rating)}
+                disabled={!canRate}
+                title={canRate ? `Rate ${rating}/10` : getRatingLockMessage(item)}
                 className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-md border text-xs font-semibold transition",
+                  "inline-flex h-8 w-8 items-center justify-center rounded-md border text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45",
                   item.rating && rating <= item.rating
                     ? "border-ember bg-ember text-ink"
                     : "border-white/12 bg-white/8 text-white/56 hover:bg-white/12 hover:text-white"
@@ -934,6 +942,11 @@ function SavedAnimeCard({
               {item.rating ? `${item.rating}/10` : "Not rated"}
             </span>
           </div>
+          {!canRate ? (
+            <p className="mt-2 text-xs leading-5 text-white/42">
+              {getRatingLockMessage(item)}
+            </p>
+          ) : null}
         </div>
       </div>
     </article>
@@ -1083,6 +1096,27 @@ function getEmptyTitle(tab: ProfileTab) {
   }
 
   return "No saved anime yet";
+}
+
+function canRateAnime(item: SavedAnime) {
+  if (item.status === "completed") {
+    return true;
+  }
+
+  if (!item.anime.episodes) {
+    return false;
+  }
+
+  return item.progressEpisode > item.anime.episodes / 2;
+}
+
+function getRatingLockMessage(item: SavedAnime) {
+  if (!item.anime.episodes) {
+    return "Episode count is unknown, so mark it completed before rating.";
+  }
+
+  const requiredEpisode = Math.floor(item.anime.episodes / 2) + 1;
+  return `Watch past episode ${requiredEpisode - 1} to rate this anime.`;
 }
 
 function isMissingProgressColumn(message: string) {
