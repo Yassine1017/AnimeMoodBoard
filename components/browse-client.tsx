@@ -13,7 +13,6 @@ import { Search, SlidersHorizontal } from "lucide-react";
 
 import { AnimeGrid } from "@/components/anime-grid";
 import { EmptyState } from "@/components/empty-state";
-import { animeTitle } from "@/lib/format";
 import type { Anime, BrowseSort, RecommendationResult } from "@/types/anime";
 
 type BrowseForm = {
@@ -101,7 +100,7 @@ export function BrowseClient() {
           throw new Error(payload.error || "Browse results could not load.");
         }
 
-        setResults(payload.results.map((anime) => mapBrowseResult(anime, nextForm)));
+        setResults(payload.results.map(mapBrowseResult));
       } catch (browseError) {
         setResults([]);
         setError(
@@ -365,16 +364,11 @@ function paramsFromForm(form: BrowseForm) {
   return params;
 }
 
-function mapBrowseResult(
-  anime: Anime,
-  form: BrowseForm
-): RecommendationResult {
+function mapBrowseResult(anime: Anime): RecommendationResult {
   return {
     anime,
     matchedFilters: [],
-    reason: form.query.trim()
-      ? `${animeTitle(anime.title)} is a direct AniList title match with your active filters.`
-      : "A direct AniList catalog result matched to your active browse filters.",
+    reason: "",
   };
 }
 

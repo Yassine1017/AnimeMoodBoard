@@ -30,7 +30,7 @@ export function AnimeCard({
   return (
     <article
       data-anime-id={anime.id}
-      className="group overflow-hidden rounded-lg border border-line bg-white/[0.045] transition hover:-translate-y-1 hover:border-white/22 hover:bg-white/[0.065]"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-line bg-white/[0.045] transition hover:-translate-y-1 hover:border-white/22 hover:bg-white/[0.065]"
     >
       <Link
         href={detailHref}
@@ -61,7 +61,7 @@ export function AnimeCard({
           </div>
         </div>
       </Link>
-      <div className="p-3.5">
+      <div className="flex flex-1 flex-col p-3.5">
         <div className="flex items-start justify-between gap-3">
           <Link href={detailHref} className="min-w-0">
             <h2 className="line-clamp-2 text-base font-semibold leading-6 text-white transition group-hover:text-ember">
@@ -86,18 +86,22 @@ export function AnimeCard({
             </span>
           ))}
         </div>
-        <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/64">
-          {result.reason}
-        </p>
+        {result.reason ? (
+          <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/64">
+            {result.reason}
+          </p>
+        ) : null}
         {showOpenAction ? (
-          <a
-            href={detailHref}
-            aria-label={`Open ${title}`}
-            title={`Open ${title}`}
-            className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-white/12 bg-white/8 text-sm font-semibold text-white/78 transition hover:bg-white/12 hover:text-white focus:outline-none focus:ring-2 focus:ring-ember focus:ring-offset-2 focus:ring-offset-ink"
-          >
-            Open anime
-          </a>
+          <div className="mt-auto pt-4">
+            <a
+              href={detailHref}
+              aria-label={`Open ${title}`}
+              title={`Open ${title}`}
+              className="inline-flex h-9 w-full items-center justify-center rounded-md border border-white/12 bg-white/8 text-sm font-semibold text-white/78 transition hover:bg-white/12 hover:text-white focus:outline-none focus:ring-2 focus:ring-ember focus:ring-offset-2 focus:ring-offset-ink"
+            >
+              Open anime
+            </a>
+          </div>
         ) : null}
       </div>
     </article>
