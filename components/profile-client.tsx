@@ -343,18 +343,18 @@ export function ProfileClient() {
           <div className="mt-6">
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/library"
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-ember px-4 text-sm font-semibold text-ink transition hover:bg-[#ff7a91]"
-              >
-                <Library className="h-4 w-4" aria-hidden="true" />
-                Open Library
-              </Link>
-              <Link
                 href="/onboarding"
-                className="inline-flex h-11 items-center gap-2 rounded-md border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white transition hover:bg-white/12"
+                className="inline-flex h-12 items-center gap-2 rounded-md bg-ember px-5 text-sm font-semibold text-ink shadow-aura transition hover:bg-[#ff7a91]"
               >
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
                 Tune taste
+              </Link>
+              <Link
+                href="/library"
+                className="inline-flex h-12 items-center gap-2 rounded-md border border-white/12 bg-white/8 px-5 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                <Library className="h-4 w-4" aria-hidden="true" />
+                Open Library
               </Link>
             </div>
           </div>
@@ -372,6 +372,33 @@ export function ProfileClient() {
           onGuest={continueAsGuest}
           onSignOut={signOut}
         />
+      </section>
+
+      <section className="mt-8 overflow-hidden rounded-lg border border-ember/30 bg-[linear-gradient(135deg,rgba(255,93,124,0.18),rgba(34,211,238,0.08),rgba(255,255,255,0.045))] p-5 shadow-aura sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-ember">
+              <Sparkles className="h-5 w-5" aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-[0.16em]">
+                Personalization
+              </p>
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-normal text-white">
+              Tune your taste for better picks.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/66">
+              Pick favorite genres, disliked genres, tones, preferred length,
+              and anime you already like so recommendations start sharper.
+            </p>
+          </div>
+          <Link
+            href="/onboarding"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-md bg-ember px-5 text-sm font-semibold text-ink transition hover:bg-[#ff7a91]"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Tune taste
+          </Link>
+        </div>
       </section>
 
       <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -559,8 +586,9 @@ function TasteProfilePanel({
           <p className="mt-3 text-sm leading-6 text-white/62">{summary}</p>
           <Link
             href="/onboarding"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-white/12 bg-white/8 px-3 text-sm font-semibold text-white transition hover:bg-white/12"
+            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ember px-4 text-sm font-semibold text-ink transition hover:bg-[#ff7a91]"
           >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
             {onboardedTaste ? "Edit taste setup" : "Start taste setup"}
           </Link>
         </div>

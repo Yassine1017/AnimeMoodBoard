@@ -31,26 +31,33 @@ export default function RootLayout({
                 <span className="grid h-9 w-9 place-items-center rounded-lg bg-ember text-ink shadow-aura">
                   <Sparkles className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <span className="text-base font-semibold tracking-normal text-white">
+                <span className="hidden text-base font-semibold tracking-normal text-white min-[520px]:inline">
                   Anime Moodboard
                 </span>
               </Link>
-              <div className="flex items-center gap-1 text-sm font-medium text-white/68">
+              <div className="flex shrink-0 items-center gap-1 text-sm font-medium text-white/68">
                 <Link
                   href="/browse"
-                  className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
+                  className="rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:px-3"
                 >
                   Browse
                 </Link>
                 <Link
                   href="/library"
-                  className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
+                  className="rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:px-3"
                 >
                   Library
                 </Link>
                 <Link
+                  href="/onboarding"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-ember/40 bg-ember/14 px-2 py-2 font-semibold text-ember transition hover:bg-ember hover:text-ink sm:px-3"
+                >
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Taste
+                </Link>
+                <Link
                   href="/profile"
-                  className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
+                  className="rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:px-3"
                 >
                   Profile
                 </Link>
