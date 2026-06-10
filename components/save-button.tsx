@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bookmark } from "lucide-react";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { animeCachePayload } from "@/lib/supabase/anime-cache";
 import { cn } from "@/lib/utils";
 import type { Anime } from "@/types/anime";
 
@@ -71,22 +72,7 @@ export function SaveButton({ anime, compact }: SaveButtonProps) {
 
   async function cacheAnime() {
     const { error: cacheError } = await supabase.from("anime_cache").upsert(
-      {
-        anilist_id: anime.id,
-        title_romaji: anime.title.romaji,
-        title_english: anime.title.english,
-        title_native: anime.title.native,
-        poster_url: anime.coverImage.extraLarge || anime.coverImage.large,
-        banner_url: anime.bannerImage,
-        average_score: anime.averageScore,
-        episodes: anime.episodes,
-        genres: anime.genres,
-        tags: anime.tags,
-        season: anime.season,
-        season_year: anime.seasonYear,
-        description: anime.description,
-        updated_at: new Date().toISOString(),
-      },
+      animeCachePayload(anime),
       { onConflict: "anilist_id" }
     );
 

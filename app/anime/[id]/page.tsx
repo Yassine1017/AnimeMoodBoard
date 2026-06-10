@@ -5,6 +5,7 @@ import { Calendar, Clock, Star } from "lucide-react";
 import { AnimeGrid } from "@/components/anime-grid";
 import { SaveButton } from "@/components/save-button";
 import { ButtonLink } from "@/components/ui/button-link";
+import { WatchProgressPanel } from "@/components/watch-progress-panel";
 import { getAnimeById } from "@/lib/anilist";
 import { animeTitle, cleanDescription, mapAnimeToRecommendation } from "@/lib/format";
 import type { Anime } from "@/types/anime";
@@ -121,12 +122,7 @@ export default async function AnimeDetailPage({ params }: AnimeDetailPageProps) 
                 ))}
             </div>
           </div>
-          <aside className="rounded-lg border border-line bg-white/[0.045] p-5">
-            <h2 className="text-base font-semibold text-white">Save status</h2>
-            <p className="mt-2 text-sm leading-6 text-white/62">
-              Auth, saved anime, and ratings are scaffolded for Supabase.
-            </p>
-          </aside>
+          <WatchProgressPanel anime={anime} />
         </div>
       </section>
 

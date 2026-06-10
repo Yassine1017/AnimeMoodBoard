@@ -24,6 +24,9 @@ create table if not exists public.saved_anime (
   anilist_id integer not null references public.anime_cache(anilist_id) on delete cascade,
   status text not null default 'saved'
     check (status in ('saved', 'watching', 'completed', 'dropped')),
+  progress_episode integer not null default 0
+    check (progress_episode >= 0),
+  last_watched_at timestamptz,
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

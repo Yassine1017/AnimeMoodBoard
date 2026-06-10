@@ -41,6 +41,8 @@ type SavedAnimeRow = {
   id: string;
   status: string;
   note: string | null;
+  progress_episode?: number | null;
+  last_watched_at?: string | null;
   created_at: string;
   anime: CachedAnime | CachedAnime[] | null;
 };
@@ -57,6 +59,8 @@ type SavedAnime = {
   createdAt: string;
   anime: CachedAnime;
   rating: number | null;
+  progressEpisode: number;
+  lastWatchedAt: string | null;
 };
 
 type AuthUser = User & {
@@ -141,31 +145,67 @@ export function ProfileClient() {
       return;
     }
 
-    const { data, error: savedError } = await supabase
-      .from("saved_anime")
-      .select(
-        `
-          id,
-          status,
-          note,
-          created_at,
-          anime:anime_cache (
-            anilist_id,
-            title_romaji,
-            title_english,
-            title_native,
-            poster_url,
-            banner_url,
-            average_score,
-            episodes,
-            genres,
-            season,
-            season_year
-          )
-        `
+    const progressSelect = `
+      id,
+      status,
+      note,
+      progress_episode,
+      last_watched_at,
+      created_at,
+      anime:anime_cache (
+        anilist_id,
+        title_romaji,
+        title_english,
+        title_native,
+        poster_url,
+        banner_url,
+        average_score,
+        episodes,
+        genres,
+        season,
+        season_year
       )
+    `;
+    const legacySelect = `
+      id,
+      status,
+      note,
+      created_at,
+      anime:anime_cache (
+        anilist_id,
+        title_romaji,
+        title_english,
+        title_native,
+        poster_url,
+        banner_url,
+        average_score,
+        episodes,
+        genres,
+        season,
+        season_year
+      )
+    `;
+    const progressResponse = await supabase
+      .from("saved_anime")
+      .select(progressSelect)
       .eq("user_id", currentSession.user.id)
       .order("created_at", { ascending: false });
+    let data = progressResponse.data;
+    let savedError = progressResponse.error;
+
+    if (
+      savedError &&
+      isMissingProgressColumn(savedError.message)
+    ) {
+      setMessage("Run the progress migration to show episode tracking.");
+      const legacyResponse = await supabase
+        .from("saved_anime")
+        .select(legacySelect)
+        .eq("user_id", currentSession.user.id)
+        .order("created_at", { ascending: false });
+      data = legacyResponse.data as typeof data;
+      savedError = legacyResponse.error;
+    }
 
     if (savedError) {
       setError(savedError.message);
@@ -751,6 +791,10 @@ function SavedAnimeCard({
     item.anime.title_native ||
     "Untitled anime";
   const poster = item.anime.poster_url;
+  const progressPercent =
+    item.progressEpisode && item.anime.episodes
+      ? Math.min(100, Math.round((item.progressEpisode / item.anime.episodes) * 100))
+      : 0;
 
   return (
     <article className="overflow-hidden rounded-lg border border-line bg-white/[0.045]">
@@ -790,6 +834,11 @@ function SavedAnimeCard({
                 ? `${item.anime.episodes} episodes`
                 : "Episodes TBA"}
             </p>
+            <p className="mt-1 text-sm font-medium text-white/68">
+              {item.progressEpisode
+                ? `Stopped at episode ${item.progressEpisode}`
+                : "Not started"}
+            </p>
           </div>
           <button
             type="button"
@@ -810,6 +859,23 @@ function SavedAnimeCard({
               {genre}
             </span>
           ))}
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3 text-xs text-white/42">
+            <span>Progress</span>
+            <span>
+              {item.anime.episodes
+                ? `${item.progressEpisode}/${item.anime.episodes}`
+                : `${item.progressEpisode} watched`}
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-ember"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
 
         <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.16em] text-white/42">
@@ -907,6 +973,8 @@ function normalizeSavedRows(rows: SavedAnimeRow[]): SavedAnime[] {
         id: row.id,
         status: normalizeStatus(row.status),
         note: row.note,
+        progressEpisode: row.progress_episode ?? 0,
+        lastWatchedAt: row.last_watched_at ?? null,
         createdAt: row.created_at,
         anime,
         rating: null,
@@ -1015,4 +1083,12 @@ function getEmptyTitle(tab: ProfileTab) {
   }
 
   return "No saved anime yet";
+}
+
+function isMissingProgressColumn(message: string) {
+  return (
+    message.includes("progress_episode") ||
+    message.includes("last_watched_at") ||
+    message.includes("schema cache")
+  );
 }
