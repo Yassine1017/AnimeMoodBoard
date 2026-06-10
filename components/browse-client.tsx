@@ -13,7 +13,12 @@ import { Search, SlidersHorizontal } from "lucide-react";
 
 import { AnimeGrid } from "@/components/anime-grid";
 import { EmptyState } from "@/components/empty-state";
-import type { Anime, BrowseSort, RecommendationResult } from "@/types/anime";
+import type {
+  Anime,
+  BrowseSort,
+  PageInfo,
+  RecommendationResult,
+} from "@/types/anime";
 
 type BrowseForm = {
   query: string;
@@ -22,10 +27,12 @@ type BrowseForm = {
   maxEpisodes: string;
   minScore: string;
   sort: BrowseSort;
+  page: number;
 };
 
 type BrowsePayload = {
   results: Anime[];
+  pageInfo?: PageInfo;
   error?: string;
 };
 
@@ -62,6 +69,7 @@ const defaultForm: BrowseForm = {
   maxEpisodes: "",
   minScore: "",
   sort: "POPULARITY_DESC",
+  page: 1,
 };
 
 export function BrowseClient() {
@@ -74,6 +82,11 @@ export function BrowseClient() {
   );
   const [form, setForm] = useState<BrowseForm>(initialForm);
   const [results, setResults] = useState<RecommendationResult[]>([]);
+  const [pageInfo, setPageInfo] = useState<PageInfo>({
+    currentPage: 1,
+    hasNextPage: false,
+    perPage: 24,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -101,8 +114,20 @@ export function BrowseClient() {
         }
 
         setResults(payload.results.map(mapBrowseResult));
+        setPageInfo(
+          payload.pageInfo ?? {
+            currentPage: nextForm.page,
+            hasNextPage: payload.results.length >= 24,
+            perPage: 24,
+          }
+        );
       } catch (browseError) {
         setResults([]);
+        setPageInfo({
+          currentPage: nextForm.page,
+          hasNextPage: false,
+          perPage: 24,
+        });
         setError(
           browseError instanceof Error
             ? browseError.message
@@ -122,7 +147,17 @@ export function BrowseClient() {
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void loadResults(form);
+    void loadResults({ ...form, page: 1 });
+  }
+
+  function goToPage(page: number) {
+    if (page < 1 || page === pageInfo.currentPage || loading) {
+      return;
+    }
+
+    const nextForm = { ...form, page };
+    setForm(nextForm);
+    void loadResults(nextForm);
   }
 
   return (
@@ -258,11 +293,19 @@ export function BrowseClient() {
       ) : error ? (
         <EmptyState title="Browse is unavailable" description={error} />
       ) : results.length ? (
-        <AnimeGrid
-          results={results}
-          mood={buildResultsLabel(form)}
-          showOpenAction
-        />
+        <>
+          <AnimeGrid
+            results={results}
+            mood={buildResultsLabel(form)}
+            showOpenAction
+          />
+          <BrowsePagination
+            loading={loading}
+            pageInfo={pageInfo}
+            onPrevious={() => goToPage(pageInfo.currentPage - 1)}
+            onNext={() => goToPage(pageInfo.currentPage + 1)}
+          />
+        </>
       ) : (
         <EmptyState
           title="No anime found"
@@ -328,6 +371,7 @@ function formFromParams(params: URLSearchParams): BrowseForm {
     maxEpisodes: params.get("maxEpisodes") ?? "",
     minScore: params.get("minScore") ?? "",
     sort: parseSort(params.get("sort")),
+    page: parsePage(params.get("page")),
   };
 }
 
@@ -356,6 +400,10 @@ function paramsFromForm(form: BrowseForm) {
 
   if (form.sort !== defaultForm.sort) {
     params.set("sort", form.sort);
+  }
+
+  if (form.page > 1) {
+    params.set("page", String(form.page));
   }
 
   return params;
@@ -389,4 +437,61 @@ function parseSort(value: string | null): BrowseSort {
 
 function validNumber(value: string) {
   return /^\d+$/.test(value);
+}
+
+function parsePage(value: string | null) {
+  const page = Number(value);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+function BrowsePagination({
+  loading,
+  onNext,
+  onPrevious,
+  pageInfo,
+}: {
+  loading: boolean;
+  onNext: () => void;
+  onPrevious: () => void;
+  pageInfo: PageInfo;
+}) {
+  const hasPrevious = pageInfo.currentPage > 1;
+
+  return (
+    <nav
+      aria-label="Browse pagination"
+      className="mt-8 flex flex-col gap-3 rounded-lg border border-line bg-white/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div>
+        <p className="text-sm font-semibold text-white">
+          Page {pageInfo.currentPage}
+          {pageInfo.lastPage ? ` of ${pageInfo.lastPage}` : ""}
+        </p>
+        {pageInfo.total ? (
+          <p className="mt-1 text-xs font-medium text-white/50">
+            {pageInfo.total.toLocaleString()} AniList results
+          </p>
+        ) : null}
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onPrevious}
+          disabled={!hasPrevious || loading}
+          className="h-10 rounded-md border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white/72 transition hover:bg-white/12 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!pageInfo.hasNextPage || loading}
+          className="h-10 rounded-md bg-ember px-4 text-sm font-semibold text-ink transition hover:bg-[#ff7a91] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next page
+        </button>
+      </div>
+    </nav>
+  );
 }

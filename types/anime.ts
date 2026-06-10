@@ -54,7 +54,21 @@ export type BrowseFilters = {
   maxEpisodes?: number;
   minScore?: number;
   sort: BrowseSort;
+  page?: number;
   perPage?: number;
+};
+
+export type PageInfo = {
+  currentPage: number;
+  hasNextPage: boolean;
+  lastPage?: number | null;
+  perPage: number;
+  total?: number | null;
+};
+
+export type BrowseAnimeResult = {
+  results: Anime[];
+  pageInfo: PageInfo;
 };
 
 export type RecommendationResult = {

@@ -20,14 +20,16 @@ export async function GET(request: Request) {
     maxEpisodes: parseNumber(searchParams.get("maxEpisodes"), 1, 10000),
     minScore: parseNumber(searchParams.get("minScore"), 1, 100),
     sort,
+    page: parseNumber(searchParams.get("page"), 1, 500) ?? 1,
     perPage: 24,
   };
 
   try {
-    const anime = await browseAnime(filters);
+    const browseResult = await browseAnime(filters);
 
     return NextResponse.json({
-      results: anime,
+      results: browseResult.results,
+      pageInfo: browseResult.pageInfo,
       filters,
     });
   } catch (error) {

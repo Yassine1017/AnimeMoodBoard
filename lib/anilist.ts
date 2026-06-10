@@ -1,4 +1,9 @@
-import type { Anime, BrowseFilters, MoodFilters } from "@/types/anime";
+import type {
+  Anime,
+  BrowseAnimeResult,
+  BrowseFilters,
+  MoodFilters,
+} from "@/types/anime";
 
 const ANILIST_ENDPOINT =
   process.env.ANILIST_GRAPHQL_ENDPOINT || "https://graphql.anilist.co";
@@ -95,9 +100,18 @@ export async function searchAnime(query: string): Promise<Anime[]> {
   return data.Page.media;
 }
 
-export async function browseAnime(filters: BrowseFilters): Promise<Anime[]> {
+export async function browseAnime(
+  filters: BrowseFilters
+): Promise<BrowseAnimeResult> {
   const data = await anilistFetch<{
     Page: {
+      pageInfo: {
+        currentPage: number;
+        hasNextPage: boolean;
+        lastPage?: number | null;
+        perPage: number;
+        total?: number | null;
+      };
       media: Anime[];
     };
   }>(
@@ -109,9 +123,17 @@ export async function browseAnime(filters: BrowseFilters): Promise<Anime[]> {
         $maxEpisodes: Int
         $minScore: Int
         $sort: [MediaSort]
+        $page: Int
         $perPage: Int
       ) {
-        Page(page: 1, perPage: $perPage) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo {
+            currentPage
+            hasNextPage
+            lastPage
+            perPage
+            total
+          }
           media(
             search: $search
             type: ANIME
@@ -134,12 +156,16 @@ export async function browseAnime(filters: BrowseFilters): Promise<Anime[]> {
       maxEpisodes: filters.maxEpisodes ? filters.maxEpisodes + 1 : undefined,
       minScore: filters.minScore ? filters.minScore - 1 : undefined,
       sort: [filters.sort],
+      page: filters.page ?? 1,
       perPage: filters.perPage ?? 24,
     },
     900
   );
 
-  return data.Page.media;
+  return {
+    results: data.Page.media,
+    pageInfo: data.Page.pageInfo,
+  };
 }
 
 export async function getAnimeById(id: number): Promise<Anime | null> {
