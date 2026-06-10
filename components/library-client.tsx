@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { CollectionsPanel } from "@/components/collections-panel";
 import { ContinueWatching } from "@/components/continue-watching";
 import { EmptyState } from "@/components/empty-state";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -348,6 +349,12 @@ export function LibraryClient() {
       </section>
 
       <ContinueWatching variant="profile" />
+      <CollectionsPanel
+        savedAnime={savedAnime.map((item) => ({
+          anilistId: item.anime.anilist_id,
+          title: getCachedAnimeTitle(item.anime),
+        }))}
+      />
 
       <section className="mt-10">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -407,6 +414,15 @@ export function LibraryClient() {
         </div>
       </section>
     </main>
+  );
+}
+
+function getCachedAnimeTitle(anime: CachedAnime) {
+  return (
+    anime.title_english ||
+    anime.title_romaji ||
+    anime.title_native ||
+    "Untitled anime"
   );
 }
 

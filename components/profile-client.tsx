@@ -61,10 +61,17 @@ type AuthUser = User & {
 };
 
 type TasteProfile = {
+  averageRating: string;
+  genreStats: Array<{
+    count: number;
+    genre: string;
+    percent: number;
+  }>;
+  personality: string;
+  preferredLength: string;
+  recommendationDial: string;
   topGenres: string[];
   summary: string;
-  preferredLength: string;
-  averageRating: string;
 };
 
 export function ProfileClient() {
@@ -574,6 +581,9 @@ function TasteProfilePanel({
   taste: TasteProfile;
 }) {
   const summary = onboardedTaste?.profileSummary || taste.summary;
+  const tones = onboardedTaste?.moodKeywords.length
+    ? onboardedTaste.moodKeywords
+    : taste.topGenres.slice(0, 3);
 
   return (
     <section className="mt-10 rounded-lg border border-line bg-white/[0.045] p-5">
@@ -613,6 +623,66 @@ function TasteProfilePanel({
                 : "No tones"
             }
           />
+        </div>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,0.58fr)_minmax(260px,0.42fr)]">
+        <div className="rounded-md border border-white/10 bg-ink/35 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
+                Anime personality
+              </p>
+              <h3 className="mt-2 text-lg font-semibold text-white">
+                {taste.personality}
+              </h3>
+            </div>
+            <span className="rounded-md bg-ember/15 px-2 py-1 text-xs font-semibold text-ember">
+              {taste.recommendationDial}
+            </span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tones.length ? (
+              tones.slice(0, 6).map((tone) => (
+                <span
+                  key={tone}
+                  className="rounded-md border border-aqua/20 bg-aqua/10 px-2.5 py-1 text-xs font-semibold text-aqua"
+                >
+                  {tone}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-white/46">
+                Add tones in Taste setup.
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="rounded-md border border-white/10 bg-ink/35 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
+            Genre shape
+          </p>
+          <div className="mt-4 grid gap-3">
+            {taste.genreStats.length ? (
+              taste.genreStats.map((item) => (
+                <div key={item.genre}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-xs font-semibold">
+                    <span className="text-white/70">{item.genre}</span>
+                    <span className="text-white/42">{item.count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-aqua"
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm leading-6 text-white/50">
+                Save anime to build a visual genre profile.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       {onboardedTaste?.dislikedGenres.length ? (
@@ -685,11 +755,14 @@ function formatPreferredLength(value?: string | null) {
 function buildTasteProfile(items: SavedAnime[]): TasteProfile {
   if (!items.length) {
     return {
+      averageRating: "No ratings",
+      genreStats: [],
+      personality: "Fresh mood explorer",
+      preferredLength: "No signal",
+      recommendationDial: "Warm start",
       topGenres: [],
       summary:
         "Save and rate anime to build a taste profile. Library will keep the detailed watchlist tidy.",
-      preferredLength: "No signal",
-      averageRating: "No ratings",
     };
   }
 
@@ -719,6 +792,15 @@ function buildTasteProfile(items: SavedAnime[]): TasteProfile {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([genre]) => genre);
+  const maxGenreCount = Math.max(...Array.from(genreCounts.values()), 1);
+  const genreStats = Array.from(genreCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([genre, count]) => ({
+      genre,
+      count,
+      percent: Math.max(12, Math.round((count / maxGenreCount) * 100)),
+    }));
 
   const averageEpisodes = episodeCount ? Math.round(episodeTotal / episodeCount) : 0;
   const preferredLength =
@@ -734,11 +816,40 @@ function buildTasteProfile(items: SavedAnime[]): TasteProfile {
     : "No ratings";
 
   return {
-    topGenres,
-    preferredLength,
     averageRating,
+    genreStats,
+    personality: buildPersonality(topGenres, preferredLength),
+    preferredLength,
+    recommendationDial: ratingCount >= 3 ? "Tuned" : "Learning",
+    topGenres,
     summary: topGenres.length
       ? `Your current profile leans toward ${topGenres.join(", ")}. Keep saving and rating in Library to sharpen future recommendations.`
       : "Your saved list is active. Add a few more shows to surface stronger genre signals.",
   };
+}
+
+function buildPersonality(topGenres: string[], preferredLength: string) {
+  if (!topGenres.length) {
+    return "Curious anime explorer";
+  }
+
+  const lead = topGenres[0];
+
+  if (lead === "Slice of Life" || lead === "Comedy") {
+    return "Comfort-first mood curator";
+  }
+
+  if (lead === "Psychological" || lead === "Thriller" || lead === "Mystery") {
+    return "Tension and mystery seeker";
+  }
+
+  if (lead === "Sports" || lead === "Action") {
+    return "High-energy hype watcher";
+  }
+
+  if (lead === "Drama" || lead === "Romance") {
+    return "Character-driven emotionalist";
+  }
+
+  return `${lead} ${preferredLength === "Longer watches" ? "deep diver" : "mood matcher"}`;
 }

@@ -4,6 +4,7 @@ import { createUserSupabaseClient } from "@/lib/supabase/user-server";
 
 type FeedbackAction =
   | "more_like_this"
+  | "less_like_this"
   | "less_dark"
   | "shorter"
   | "more_emotional";
@@ -20,6 +21,7 @@ type FeedbackBody = {
 
 const allowedActions = new Set<FeedbackAction>([
   "more_like_this",
+  "less_like_this",
   "less_dark",
   "shorter",
   "more_emotional",

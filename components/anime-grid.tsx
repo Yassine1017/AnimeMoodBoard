@@ -35,6 +35,7 @@ export function AnimeGrid({
             key={result.anime.id}
             result={result}
             compact={compact}
+            mood={mood}
             priority={!compact && index === 0}
             showHideAction={showHideAction}
             showOpenAction={showOpenAction}

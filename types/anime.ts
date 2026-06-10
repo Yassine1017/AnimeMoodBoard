@@ -28,6 +28,12 @@ export type Anime = {
   season?: string | null;
   seasonYear?: number | null;
   format?: string | null;
+  status?: string | null;
+  nextAiringEpisode?: {
+    airingAt?: number | null;
+    episode?: number | null;
+    timeUntilAiring?: number | null;
+  } | null;
   tags: AnimeTag[];
   recommendations?: {
     nodes: Array<{
@@ -91,4 +97,11 @@ export type RecommendationResponse = {
   filters: MoodFilters;
   results: RecommendationResult[];
   personalization?: RecommendationPersonalization;
+};
+
+export type DiscoveryRow = {
+  title: string;
+  description: string;
+  mood: string;
+  results: RecommendationResult[];
 };

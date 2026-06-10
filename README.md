@@ -48,6 +48,7 @@ The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, saved anime, r
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
 - If your project already exists, run `supabase/progress-migration.sql` to add episode progress tracking.
 - If your project already exists, run `supabase/recommendation-memory-migration.sql` to add feedback, hidden anime, and seen anime memory.
+- If your project already exists, run `supabase/collections-migration.sql` to add mood-board collections and `less_like_this` feedback.
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Enable anonymous sign-ins in Supabase Authentication if you want one-click saving before building a full login screen.
 - Enable email magic links in Authentication.

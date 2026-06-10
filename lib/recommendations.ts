@@ -40,6 +40,7 @@ type TasteContext = {
 
 type FeedbackAction =
   | "more_like_this"
+  | "less_like_this"
   | "less_dark"
   | "shorter"
   | "more_emotional";

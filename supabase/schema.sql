@@ -67,7 +67,7 @@ create table if not exists public.recommendation_feedback (
   user_id uuid not null references auth.users(id) on delete cascade,
   mood_query text not null,
   action text not null
-    check (action in ('more_like_this', 'less_dark', 'shorter', 'more_emotional')),
+    check (action in ('more_like_this', 'less_like_this', 'less_dark', 'shorter', 'more_emotional')),
   anchor_anilist_id integer,
   anchor_title text,
   anchor_genres text[] not null default '{}',
@@ -91,6 +91,23 @@ create table if not exists public.seen_anime (
   seen_count integer not null default 1 check (seen_count >= 1),
   last_seen_at timestamptz not null default now(),
   unique (user_id, anilist_id)
+);
+
+create table if not exists public.anime_collections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.anime_collection_items (
+  id uuid primary key default gen_random_uuid(),
+  collection_id uuid not null references public.anime_collections(id) on delete cascade,
+  anilist_id integer not null references public.anime_cache(anilist_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (collection_id, anilist_id)
 );
 
 create index if not exists saved_anime_user_created_idx
@@ -120,6 +137,12 @@ create index if not exists seen_anime_user_seen_idx
 create index if not exists seen_anime_user_anilist_idx
   on public.seen_anime (user_id, anilist_id);
 
+create index if not exists anime_collections_user_created_idx
+  on public.anime_collections (user_id, created_at desc);
+
+create index if not exists anime_collection_items_collection_idx
+  on public.anime_collection_items (collection_id, created_at desc);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -145,6 +168,11 @@ create trigger set_taste_profiles_updated_at
 before update on public.taste_profiles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_anime_collections_updated_at on public.anime_collections;
+create trigger set_anime_collections_updated_at
+before update on public.anime_collections
+for each row execute function public.set_updated_at();
+
 alter table public.anime_cache enable row level security;
 alter table public.saved_anime enable row level security;
 alter table public.anime_ratings enable row level security;
@@ -153,6 +181,8 @@ alter table public.taste_profiles enable row level security;
 alter table public.recommendation_feedback enable row level security;
 alter table public.hidden_anime enable row level security;
 alter table public.seen_anime enable row level security;
+alter table public.anime_collections enable row level security;
+alter table public.anime_collection_items enable row level security;
 
 drop policy if exists "Anime cache is readable by everyone" on public.anime_cache;
 create policy "Anime cache is readable by everyone"
@@ -286,3 +316,57 @@ create policy "Users can update their seen anime"
 on public.seen_anime for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their collections" on public.anime_collections;
+create policy "Users can read their collections"
+on public.anime_collections for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their collections" on public.anime_collections;
+create policy "Users can insert their collections"
+on public.anime_collections for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their collections" on public.anime_collections;
+create policy "Users can update their collections"
+on public.anime_collections for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their collections" on public.anime_collections;
+create policy "Users can delete their collections"
+on public.anime_collections for delete
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their collection items" on public.anime_collection_items;
+create policy "Users can read their collection items"
+on public.anime_collection_items for select
+using (
+  exists (
+    select 1 from public.anime_collections
+    where anime_collections.id = anime_collection_items.collection_id
+      and anime_collections.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can insert their collection items" on public.anime_collection_items;
+create policy "Users can insert their collection items"
+on public.anime_collection_items for insert
+with check (
+  exists (
+    select 1 from public.anime_collections
+    where anime_collections.id = anime_collection_items.collection_id
+      and anime_collections.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can delete their collection items" on public.anime_collection_items;
+create policy "Users can delete their collection items"
+on public.anime_collection_items for delete
+using (
+  exists (
+    select 1 from public.anime_collections
+    where anime_collections.id = anime_collection_items.collection_id
+      and anime_collections.user_id = auth.uid()
+  )
+);

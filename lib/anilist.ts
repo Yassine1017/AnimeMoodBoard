@@ -2,6 +2,7 @@ import type {
   Anime,
   BrowseAnimeResult,
   BrowseFilters,
+  DiscoveryRow,
   MoodFilters,
 } from "@/types/anime";
 
@@ -67,6 +68,12 @@ const animeFields = `
   season
   seasonYear
   format
+  status
+  nextAiringEpisode {
+    airingAt
+    episode
+    timeUntilAiring
+  }
   tags {
     name
     rank
@@ -236,6 +243,154 @@ export async function fetchAnimeByMoodFilters(
       sort: filters.sort,
       perPage,
     }
+  );
+
+  return data.Page.media;
+}
+
+type DiscoveryQuery = {
+  description: string;
+  genres?: string[];
+  maxEpisodes?: number;
+  minScore?: number;
+  mood: string;
+  sort: string[];
+  status?: string;
+  tags?: string[];
+  title: string;
+};
+
+const discoveryQueries: DiscoveryQuery[] = [
+  {
+    title: "Trending this week",
+    description: "Popular current picks with strong audience momentum.",
+    mood: "trending this week",
+    sort: ["TRENDING_DESC", "POPULARITY_DESC"],
+  },
+  {
+    title: "Short gems",
+    description: "Compact shows that are easier to finish.",
+    mood: "short gems",
+    maxEpisodes: 13,
+    minScore: 70,
+    sort: ["SCORE_DESC", "POPULARITY_DESC"],
+  },
+  {
+    title: "Dark psychological",
+    description: "Tense picks with mystery, pressure, and mind games.",
+    mood: "dark psychological thriller",
+    genres: ["Psychological", "Thriller", "Mystery"],
+    tags: ["Psychological"],
+    sort: ["POPULARITY_DESC", "SCORE_DESC"],
+  },
+  {
+    title: "Cozy comfort picks",
+    description: "Warm, easygoing shows for a softer watch.",
+    mood: "cozy slice of life",
+    genres: ["Slice of Life", "Comedy"],
+    sort: ["POPULARITY_DESC", "SCORE_DESC"],
+  },
+  {
+    title: "Highly rated hidden gems",
+    description: "Critically loved picks beyond the obvious first search.",
+    mood: "highly rated hidden gems",
+    minScore: 82,
+    sort: ["SCORE_DESC", "POPULARITY_DESC"],
+  },
+];
+
+export async function getHomeDiscoveryRows(): Promise<DiscoveryRow[]> {
+  const rows = await Promise.all(
+    discoveryQueries.map(async (query) => {
+      try {
+        const results = await fetchDiscoveryAnime(query, 8);
+
+        return {
+          title: query.title,
+          description: query.description,
+          mood: query.mood,
+          results: results.map((anime) => ({
+            anime,
+            matchedFilters: [query.title.toLowerCase()],
+            reason: "",
+          })),
+        };
+      } catch {
+        return {
+          title: query.title,
+          description: query.description,
+          mood: query.mood,
+          results: [],
+        };
+      }
+    })
+  );
+
+  return rows.filter((row) => row.results.length);
+}
+
+export async function getAiringAnime(perPage = 8): Promise<Anime[]> {
+  try {
+    return fetchDiscoveryAnime(
+      {
+        title: "Airing now",
+        description: "Currently airing anime.",
+        mood: "airing now",
+        sort: ["TRENDING_DESC", "POPULARITY_DESC"],
+        status: "RELEASING",
+      },
+      perPage
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function fetchDiscoveryAnime(
+  query: DiscoveryQuery,
+  perPage: number
+): Promise<Anime[]> {
+  const data = await anilistFetch<{
+    Page: {
+      media: Anime[];
+    };
+  }>(
+    `
+      query DiscoveryAnime(
+        $genres: [String]
+        $tags: [String]
+        $maxEpisodes: Int
+        $minScore: Int
+        $status: MediaStatus
+        $sort: [MediaSort]
+        $perPage: Int
+      ) {
+        Page(page: 1, perPage: $perPage) {
+          media(
+            type: ANIME
+            isAdult: false
+            genre_in: $genres
+            tag_in: $tags
+            episodes_lesser: $maxEpisodes
+            averageScore_greater: $minScore
+            status: $status
+            sort: $sort
+          ) {
+            ${animeFields}
+          }
+        }
+      }
+    `,
+    {
+      genres: query.genres?.length ? query.genres : undefined,
+      tags: query.tags?.length ? query.tags : undefined,
+      maxEpisodes: query.maxEpisodes ? query.maxEpisodes + 1 : undefined,
+      minScore: query.minScore ? query.minScore - 1 : undefined,
+      status: query.status,
+      sort: query.sort,
+      perPage,
+    },
+    900
   );
 
   return data.Page.media;

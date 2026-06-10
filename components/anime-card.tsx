@@ -4,12 +4,14 @@ import { Star } from "lucide-react";
 
 import { HideAnimeButton } from "@/components/hide-anime-button";
 import { SaveButton } from "@/components/save-button";
+import { WhyThisFits } from "@/components/why-this-fits";
 import { animeTitle } from "@/lib/format";
 import type { RecommendationResult } from "@/types/anime";
 
 type AnimeCardProps = {
   result: RecommendationResult;
   compact?: boolean;
+  mood?: string;
   priority?: boolean;
   showHideAction?: boolean;
   showOpenAction?: boolean;
@@ -18,6 +20,7 @@ type AnimeCardProps = {
 export function AnimeCard({
   result,
   compact,
+  mood,
   priority,
   showHideAction,
   showOpenAction,
@@ -90,6 +93,14 @@ export function AnimeCard({
           <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/64">
             {result.reason}
           </p>
+        ) : null}
+        {!compact ? (
+          <WhyThisFits
+            anime={anime}
+            matchedFilters={result.matchedFilters}
+            mood={mood}
+            reason={result.reason}
+          />
         ) : null}
         {showOpenAction ? (
           <div className="mt-auto pt-4">

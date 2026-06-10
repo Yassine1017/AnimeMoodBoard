@@ -6,7 +6,7 @@ create table if not exists public.recommendation_feedback (
   user_id uuid not null references auth.users(id) on delete cascade,
   mood_query text not null,
   action text not null
-    check (action in ('more_like_this', 'less_dark', 'shorter', 'more_emotional')),
+    check (action in ('more_like_this', 'less_like_this', 'less_dark', 'shorter', 'more_emotional')),
   anchor_anilist_id integer,
   anchor_title text,
   anchor_genres text[] not null default '{}',

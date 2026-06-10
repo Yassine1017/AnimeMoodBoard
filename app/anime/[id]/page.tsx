@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { Calendar, Clock, Star } from "lucide-react";
+import { Calendar, CalendarClock, Clock, Star } from "lucide-react";
 
 import { AnimeGrid } from "@/components/anime-grid";
 import { SaveButton } from "@/components/save-button";
@@ -89,6 +89,12 @@ export default async function AnimeDetailPage({ params }: AnimeDetailPageProps) 
                 {[anime.season, anime.seasonYear].filter(Boolean).join(" ") ||
                   "Season TBA"}
               </span>
+              {anime.status === "RELEASING" ? (
+                <span className="inline-flex items-center gap-2 text-aqua">
+                  <CalendarClock className="h-4 w-4" />
+                  {formatNextEpisode(anime.nextAiringEpisode)}
+                </span>
+              ) : null}
             </div>
             <p className="mt-6 max-w-3xl text-base leading-8 text-white/72">
               {cleanDescription(anime.description) ||
@@ -135,4 +141,28 @@ export default async function AnimeDetailPage({ params }: AnimeDetailPageProps) 
       </section>
     </main>
   );
+}
+
+function formatNextEpisode(
+  nextAiringEpisode?: {
+    episode?: number | null;
+    timeUntilAiring?: number | null;
+  } | null
+) {
+  if (!nextAiringEpisode?.episode) {
+    return "Airing now";
+  }
+
+  if (!nextAiringEpisode.timeUntilAiring) {
+    return `Episode ${nextAiringEpisode.episode} next`;
+  }
+
+  const days = Math.floor(nextAiringEpisode.timeUntilAiring / 86400);
+  const hours = Math.floor((nextAiringEpisode.timeUntilAiring % 86400) / 3600);
+
+  if (days > 0) {
+    return `Episode ${nextAiringEpisode.episode} in ${days}d ${hours}h`;
+  }
+
+  return `Episode ${nextAiringEpisode.episode} in ${Math.max(hours, 1)}h`;
 }
