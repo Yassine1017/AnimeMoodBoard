@@ -42,14 +42,16 @@ AniList public reads do not require an API key.
 
 ## Supabase Setup Later
 
-The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, and profile/save UI placeholders. For a production pass:
+The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, saved anime, ratings, and profile UI. For a production pass:
 
 - Create a Supabase project.
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Enable anonymous sign-ins in Supabase Authentication if you want one-click saving before building a full login screen.
-- Add auth helpers for server/client sessions.
-- Gate profile persistence behind authenticated user IDs.
+- Enable email magic links in Authentication.
+- Enable Google in Authentication providers and add your local and production redirect URLs.
+- Enable manual identity linking if you want guest users to link Google from the Profile page.
+- Add redirect URLs such as `http://127.0.0.1:3000/profile` and your production `/profile` URL.
 
 ## OpenAI Setup Later
 
