@@ -84,6 +84,7 @@ npm run build
 - `/` - Mood search home screen
 - `/recommendations?mood=cozy%20slice%20of%20life` - Recommendation grid
 - `/anime/[id]` - Anime detail page
-- `/profile` - Auth, saved anime, statuses, ratings, and taste profile
+- `/library` - Saved anime, watching, completed, ratings, and progress management
+- `/profile` - Account, auth, stats, and taste profile overview
 - `/api/anilist/search?q=naruto` - AniList search API
 - `/api/recommend?mood=dark%20thriller` - Personalized recommendation API

@@ -43,6 +43,12 @@ export default function RootLayout({
                   Browse
                 </Link>
                 <Link
+                  href="/library"
+                  className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
+                >
+                  Library
+                </Link>
+                <Link
                   href="/profile"
                   className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
                 >
