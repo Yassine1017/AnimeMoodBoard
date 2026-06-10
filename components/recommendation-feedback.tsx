@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Clock3, Heart, RefreshCw, Sparkles, SunMedium } from "lucide-react";
 
 import { animeTitle } from "@/lib/format";
+import { createOptionalBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { RecommendationResult } from "@/types/anime";
 
 type RecommendationFeedbackProps = {
@@ -12,16 +14,67 @@ type RecommendationFeedbackProps = {
 };
 
 const darkWords = /\b(dark|psychological|thriller|horror|violent|bleak)\b/gi;
+type FeedbackAction =
+  | "more_like_this"
+  | "less_dark"
+  | "shorter"
+  | "more_emotional";
 
 export function RecommendationFeedback({
   mood,
   topResult,
 }: RecommendationFeedbackProps) {
   const router = useRouter();
+  const supabase = useMemo(() => createOptionalBrowserSupabaseClient(), []);
   const topAnime = topResult?.anime;
 
-  function refine(nextMood: string) {
+  async function refine(action: FeedbackAction, nextMood: string) {
+    void saveFeedback(action);
     router.push(`/recommendations?mood=${encodeURIComponent(cleanMood(nextMood))}`);
+  }
+
+  async function saveFeedback(action: FeedbackAction) {
+    if (!supabase) {
+      return;
+    }
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      return;
+    }
+
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action,
+        mood,
+        anchorAnime: topAnime
+          ? {
+              id: topAnime.id,
+              title: animeTitle(topAnime.title),
+              genres: topAnime.genres,
+            }
+          : undefined,
+      }),
+    }).catch(() => undefined);
+  }
+
+  async function getAccessToken() {
+    const {
+      data: { session },
+    } = await supabase!.auth.getSession();
+
+    if (session?.access_token) {
+      return session.access_token;
+    }
+
+    const { data } = await supabase!.auth.signInAnonymously();
+    return data.session?.access_token;
   }
 
   const moreLikeThis = topAnime
@@ -42,22 +95,22 @@ export function RecommendationFeedback({
           <FeedbackButton
             icon={RefreshCw}
             label="More like this"
-            onClick={() => refine(moreLikeThis)}
+            onClick={() => refine("more_like_this", moreLikeThis)}
           />
           <FeedbackButton
             icon={SunMedium}
             label="Less dark"
-            onClick={() => refine(lessDark)}
+            onClick={() => refine("less_dark", lessDark)}
           />
           <FeedbackButton
             icon={Clock3}
             label="Shorter"
-            onClick={() => refine(shorter)}
+            onClick={() => refine("shorter", shorter)}
           />
           <FeedbackButton
             icon={Heart}
             label="More emotional"
-            onClick={() => refine(moreEmotional)}
+            onClick={() => refine("more_emotional", moreEmotional)}
           />
         </div>
       </div>

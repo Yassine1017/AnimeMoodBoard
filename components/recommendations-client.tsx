@@ -90,6 +90,33 @@ export function RecommendationsClient({ mood }: RecommendationsClientProps) {
     };
   }, [mood, supabase]);
 
+  useEffect(() => {
+    function handleHiddenAnime(event: Event) {
+      const animeId = (event as CustomEvent<{ animeId?: number }>).detail?.animeId;
+
+      if (!animeId) {
+        return;
+      }
+
+      setRecommendation((current) =>
+        current
+          ? {
+              ...current,
+              results: current.results.filter(
+                (result) => result.anime.id !== animeId
+              ),
+            }
+          : current
+      );
+    }
+
+    window.addEventListener("anime-hidden", handleHiddenAnime);
+
+    return () => {
+      window.removeEventListener("anime-hidden", handleHiddenAnime);
+    };
+  }, []);
+
   const personalization = recommendation?.personalization;
 
   return (
@@ -117,7 +144,7 @@ export function RecommendationsClient({ mood }: RecommendationsClientProps) {
                     }`
                   : "Rule-based warm start"}
                 {personalization.topGenres.length
-                  ? ` • ${personalization.topGenres.slice(0, 3).join(", ")}`
+                  ? ` - ${personalization.topGenres.slice(0, 3).join(", ")}`
                   : ""}
               </span>
             </div>
@@ -136,7 +163,11 @@ export function RecommendationsClient({ mood }: RecommendationsClientProps) {
             mood={recommendation.mood}
             topResult={recommendation.results[0]}
           />
-          <AnimeGrid results={recommendation.results} mood={recommendation.mood} />
+          <AnimeGrid
+            results={recommendation.results}
+            mood={recommendation.mood}
+            showHideAction
+          />
         </>
       ) : (
         <EmptyState

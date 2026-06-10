@@ -34,6 +34,19 @@ type RecommendationBuild = {
 type TasteContext = {
   userId?: string;
   profile?: TasteProfile;
+  memory: RecommendationMemory;
+};
+
+type FeedbackAction =
+  | "more_like_this"
+  | "less_dark"
+  | "shorter"
+  | "more_emotional";
+
+type RecommendationMemory = {
+  hiddenAnimeIds: Set<number>;
+  seenAnimeIds: Set<number>;
+  feedback: RecommendationFeedbackRow[];
 };
 
 type CachedAnimeRow = {
@@ -54,6 +67,15 @@ type SavedTasteRow = {
 type RatingRow = {
   anilist_id: number;
   rating: number;
+};
+
+type RecommendationFeedbackRow = {
+  action: FeedbackAction | null;
+  anchor_genres: string[] | null;
+};
+
+type AnimeIdRow = {
+  anilist_id: number | null;
 };
 
 export function moodToFilters(mood: string): MoodFilters {
@@ -110,23 +132,27 @@ export async function getPersonalizedRecommendations(
   mood: string,
   accessToken?: string
 ): Promise<RecommendationResponse> {
-  const filters = moodToFilters(mood);
-  const [moodAnime, titleAnime, tasteContext] = await Promise.all([
-    fetchWithFallbacks(filters, CANDIDATE_LIMIT),
+  const baseFilters = moodToFilters(mood);
+  const [titleAnime, tasteContext] = await Promise.all([
     searchAnimeByTitle(mood),
     getTasteContext(accessToken),
   ]);
-  const anime = mergeTitleAndMoodCandidates(mood, filters, titleAnime, moodAnime);
+  const filters = applyRecommendationMemory(
+    baseFilters,
+    tasteContext.memory
+  );
+  const moodAnime = await fetchWithFallbacks(filters, CANDIDATE_LIMIT);
+  const anime = applyAnimeMemory(
+    mergeTitleAndMoodCandidates(mood, filters, titleAnime, moodAnime),
+    tasteContext.memory
+  );
   const build = await buildRecommendations(mood, filters, anime, tasteContext.profile);
 
   if (tasteContext.userId) {
-    await recordMoodSearch(
-      accessToken,
-      tasteContext.userId,
-      mood,
-      filters,
-      build.results
-    );
+    await Promise.all([
+      recordMoodSearch(accessToken, tasteContext.userId, mood, filters, build.results),
+      recordSeenAnime(accessToken, tasteContext.userId, build.results),
+    ]);
   }
 
   const usedTasteProfile = Boolean(tasteContext.profile?.savedAnimeCount);
@@ -196,6 +222,103 @@ function getTitleCandidates(
   }
 
   return [];
+}
+
+function applyRecommendationMemory(
+  filters: MoodFilters,
+  memory: RecommendationMemory
+): MoodFilters {
+  if (!memory.feedback.length) {
+    return filters;
+  }
+
+  const counts = countFeedbackActions(memory.feedback);
+  const next: MoodFilters = {
+    ...filters,
+    genres: [...filters.genres],
+    tags: [...filters.tags],
+    labels: [...filters.labels],
+  };
+
+  if ((counts.get("shorter") ?? 0) > 0) {
+    next.maxEpisodes = Math.min(next.maxEpisodes ?? 24, 24);
+    next.labels.push("short");
+  }
+
+  if ((counts.get("more_emotional") ?? 0) > 0) {
+    next.genres.push("Drama", "Romance");
+    next.labels.push("emotional", "character-driven");
+  }
+
+  if ((counts.get("less_dark") ?? 0) > 0) {
+    const darkGenres = new Set(["Psychological", "Thriller", "Horror", "Mystery"]);
+    const darkTags = new Set(["Psychological"]);
+    const darkLabels = new Set(["psychological", "tense"]);
+
+    next.genres = next.genres.filter((genre) => !darkGenres.has(genre));
+    next.tags = next.tags.filter((tag) => !darkTags.has(tag));
+    next.labels = next.labels.filter((label) => !darkLabels.has(label));
+    next.genres.push("Slice of Life", "Comedy");
+    next.labels.push("lighter", "low-pressure");
+  }
+
+  if ((counts.get("more_like_this") ?? 0) > 0) {
+    next.genres.push(...topAnchorGenres(memory.feedback).slice(0, 2));
+  }
+
+  return {
+    ...next,
+    genres: unique(next.genres.length ? next.genres : defaultFilters.genres),
+    tags: unique(next.tags),
+    labels: unique(next.labels.length ? next.labels : defaultFilters.labels),
+  };
+}
+
+function applyAnimeMemory(anime: Anime[], memory: RecommendationMemory) {
+  if (!memory.hiddenAnimeIds.size && !memory.seenAnimeIds.size) {
+    return anime;
+  }
+
+  const withoutHidden = anime.filter(
+    (item) => !memory.hiddenAnimeIds.has(item.id)
+  );
+  const withoutSeen = withoutHidden.filter(
+    (item) => !memory.seenAnimeIds.has(item.id)
+  );
+
+  return withoutSeen.length >= 8 ? withoutSeen : withoutHidden;
+}
+
+function countFeedbackActions(feedback: RecommendationFeedbackRow[]) {
+  const counts = new Map<FeedbackAction, number>();
+
+  for (const row of feedback) {
+    if (!row.action) {
+      continue;
+    }
+
+    counts.set(row.action, (counts.get(row.action) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function topAnchorGenres(feedback: RecommendationFeedbackRow[]) {
+  const genreCounts = new Map<string, number>();
+
+  for (const row of feedback) {
+    if (row.action !== "more_like_this") {
+      continue;
+    }
+
+    for (const genre of row.anchor_genres ?? []) {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(genreCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([genre]) => genre);
 }
 
 async function buildRecommendations(
@@ -349,13 +472,13 @@ async function fetchWithFallbacks(
 
 async function getTasteContext(accessToken?: string): Promise<TasteContext> {
   if (!accessToken) {
-    return {};
+    return { memory: createEmptyRecommendationMemory() };
   }
 
   const supabase = createUserSupabaseClient(accessToken);
 
   if (!supabase) {
-    return {};
+    return { memory: createEmptyRecommendationMemory() };
   }
 
   const {
@@ -364,8 +487,10 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return {};
+    return { memory: createEmptyRecommendationMemory() };
   }
+
+  const memory = await getRecommendationMemory(supabase, user.id);
 
   const { data: savedRows, error: savedError } = await supabase
     .from("saved_anime")
@@ -386,7 +511,7 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
     .eq("user_id", user.id);
 
   if (savedError) {
-    return { userId: user.id };
+    return { userId: user.id, memory };
   }
 
   const saved = (savedRows ?? []) as SavedTasteRow[];
@@ -421,7 +546,55 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
 
   return {
     userId: user.id,
+    memory,
     profile: tasteItems.length ? buildTasteProfile(tasteItems) : undefined,
+  };
+}
+
+async function getRecommendationMemory(
+  supabase: NonNullable<ReturnType<typeof createUserSupabaseClient>>,
+  userId: string
+): Promise<RecommendationMemory> {
+  const memory = createEmptyRecommendationMemory();
+  const [hiddenResult, seenResult, feedbackResult] = await Promise.all([
+    supabase.from("hidden_anime").select("anilist_id").eq("user_id", userId),
+    supabase.from("seen_anime").select("anilist_id").eq("user_id", userId),
+    supabase
+      .from("recommendation_feedback")
+      .select("action, anchor_genres")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(40),
+  ]);
+
+  if (!hiddenResult.error) {
+    ((hiddenResult.data ?? []) as AnimeIdRow[]).forEach((row) => {
+      if (row.anilist_id) {
+        memory.hiddenAnimeIds.add(row.anilist_id);
+      }
+    });
+  }
+
+  if (!seenResult.error) {
+    ((seenResult.data ?? []) as AnimeIdRow[]).forEach((row) => {
+      if (row.anilist_id) {
+        memory.seenAnimeIds.add(row.anilist_id);
+      }
+    });
+  }
+
+  if (!feedbackResult.error) {
+    memory.feedback = (feedbackResult.data ?? []) as RecommendationFeedbackRow[];
+  }
+
+  return memory;
+}
+
+function createEmptyRecommendationMemory(): RecommendationMemory {
+  return {
+    hiddenAnimeIds: new Set<number>(),
+    seenAnimeIds: new Set<number>(),
+    feedback: [],
   };
 }
 
@@ -482,6 +655,34 @@ async function recordMoodSearch(
     filters,
     result_anilist_ids: results.map((result) => result.anime.id),
   });
+}
+
+async function recordSeenAnime(
+  accessToken: string | undefined,
+  userId: string,
+  results: RecommendationResult[]
+) {
+  if (!accessToken || !results.length) {
+    return;
+  }
+
+  const supabase = createUserSupabaseClient(accessToken);
+
+  if (!supabase) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  await supabase.from("seen_anime").upsert(
+    results.map((result) => ({
+      user_id: userId,
+      anilist_id: result.anime.id,
+      source: "recommendations",
+      last_seen_at: now,
+    })),
+    { onConflict: "user_id,anilist_id" }
+  );
 }
 
 function normalizeCachedAnime(

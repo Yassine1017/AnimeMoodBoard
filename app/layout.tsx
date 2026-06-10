@@ -37,7 +37,7 @@ export default function RootLayout({
               </Link>
               <div className="flex items-center gap-1 text-sm font-medium text-white/68">
                 <Link
-                  href="/recommendations"
+                  href="/browse"
                   className="rounded-md px-3 py-2 transition hover:bg-white/8 hover:text-white"
                 >
                   Browse

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
 
+import { HideAnimeButton } from "@/components/hide-anime-button";
 import { SaveButton } from "@/components/save-button";
 import { animeTitle } from "@/lib/format";
 import type { RecommendationResult } from "@/types/anime";
@@ -9,9 +10,18 @@ import type { RecommendationResult } from "@/types/anime";
 type AnimeCardProps = {
   result: RecommendationResult;
   compact?: boolean;
+  priority?: boolean;
+  showHideAction?: boolean;
+  showOpenAction?: boolean;
 };
 
-export function AnimeCard({ result, compact }: AnimeCardProps) {
+export function AnimeCard({
+  result,
+  compact,
+  priority,
+  showHideAction,
+  showOpenAction,
+}: AnimeCardProps) {
   const anime = result.anime;
   const title = animeTitle(anime.title);
   const poster = anime.coverImage.extraLarge || anime.coverImage.large || "";
@@ -27,6 +37,7 @@ export function AnimeCard({ result, compact }: AnimeCardProps) {
             src={poster}
             alt={`${title} poster`}
             fill
+            priority={priority}
             className="object-cover transition duration-500 group-hover:scale-105"
             sizes={
               compact
@@ -53,7 +64,10 @@ export function AnimeCard({ result, compact }: AnimeCardProps) {
               {title}
             </h2>
           </Link>
-          <SaveButton anime={anime} compact />
+          <div className="flex shrink-0 items-center gap-2">
+            {showHideAction ? <HideAnimeButton anime={anime} /> : null}
+            <SaveButton anime={anime} compact />
+          </div>
         </div>
         <p className="mt-1 text-sm text-white/52">
           {anime.episodes ? `${anime.episodes} episodes` : "Episodes TBA"}
@@ -71,6 +85,14 @@ export function AnimeCard({ result, compact }: AnimeCardProps) {
         <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/64">
           {result.reason}
         </p>
+        {showOpenAction ? (
+          <Link
+            href={`/anime/${anime.id}`}
+            className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-white/12 bg-white/8 text-sm font-semibold text-white/78 transition hover:bg-white/12 hover:text-white focus:outline-none focus:ring-2 focus:ring-ember focus:ring-offset-2 focus:ring-offset-ink"
+          >
+            Open anime
+          </Link>
+        ) : null}
       </div>
     </article>
   );

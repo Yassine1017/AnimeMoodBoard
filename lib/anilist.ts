@@ -1,4 +1,4 @@
-import type { Anime, MoodFilters } from "@/types/anime";
+import type { Anime, BrowseFilters, MoodFilters } from "@/types/anime";
 
 const ANILIST_ENDPOINT =
   process.env.ANILIST_GRAPHQL_ENDPOINT || "https://graphql.anilist.co";
@@ -90,6 +90,53 @@ export async function searchAnime(query: string): Promise<Anime[]> {
       }
     `,
     { search: query }
+  );
+
+  return data.Page.media;
+}
+
+export async function browseAnime(filters: BrowseFilters): Promise<Anime[]> {
+  const data = await anilistFetch<{
+    Page: {
+      media: Anime[];
+    };
+  }>(
+    `
+      query BrowseAnime(
+        $search: String
+        $genres: [String]
+        $seasonYear: Int
+        $maxEpisodes: Int
+        $minScore: Int
+        $sort: [MediaSort]
+        $perPage: Int
+      ) {
+        Page(page: 1, perPage: $perPage) {
+          media(
+            search: $search
+            type: ANIME
+            isAdult: false
+            genre_in: $genres
+            seasonYear: $seasonYear
+            episodes_lesser: $maxEpisodes
+            averageScore_greater: $minScore
+            sort: $sort
+          ) {
+            ${animeFields}
+          }
+        }
+      }
+    `,
+    {
+      search: filters.query || undefined,
+      genres: filters.genre ? [filters.genre] : undefined,
+      seasonYear: filters.year,
+      maxEpisodes: filters.maxEpisodes ? filters.maxEpisodes + 1 : undefined,
+      minScore: filters.minScore ? filters.minScore - 1 : undefined,
+      sort: [filters.sort],
+      perPage: filters.perPage ?? 24,
+    },
+    900
   );
 
   return data.Page.media;

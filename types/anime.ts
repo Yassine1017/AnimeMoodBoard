@@ -45,6 +45,18 @@ export type MoodFilters = {
   labels: string[];
 };
 
+export type BrowseSort = "POPULARITY_DESC" | "SCORE_DESC" | "START_DATE_DESC";
+
+export type BrowseFilters = {
+  query?: string;
+  genre?: string;
+  year?: number;
+  maxEpisodes?: number;
+  minScore?: number;
+  sort: BrowseSort;
+  perPage?: number;
+};
+
 export type RecommendationResult = {
   anime: Anime;
   reason: string;
