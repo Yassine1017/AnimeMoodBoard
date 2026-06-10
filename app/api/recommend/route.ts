@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getRecommendations } from "@/lib/recommendations";
+import { getPersonalizedRecommendations } from "@/lib/recommendations";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +14,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const recommendation = await getRecommendations(mood);
+    const recommendation = await getPersonalizedRecommendations(
+      mood,
+      getBearerToken(request.headers.get("authorization"))
+    );
+
     return NextResponse.json(recommendation);
   } catch (error) {
     return NextResponse.json(
@@ -27,4 +31,13 @@ export async function GET(request: Request) {
       { status: 502 }
     );
   }
+}
+
+function getBearerToken(header: string | null) {
+  if (!header?.startsWith("Bearer ")) {
+    return undefined;
+  }
+
+  const token = header.slice("Bearer ".length).trim();
+  return token || undefined;
 }

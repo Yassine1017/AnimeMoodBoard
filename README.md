@@ -1,6 +1,6 @@
 # Anime Moodboard
 
-Anime Moodboard is a polished Next.js starter app for spoiler-free anime recommendations. Users enter the kind of anime they are in the mood for, and the app turns that mood into rule-based filters backed by live AniList GraphQL data.
+Anime Moodboard is a polished Next.js starter app for spoiler-free anime recommendations. Users enter the kind of anime they are in the mood for, and the app turns that mood into live AniList picks ranked by mood, saved anime, ratings, and optional OpenAI refinement.
 
 ## Stack
 
@@ -8,8 +8,8 @@ Anime Moodboard is a polished Next.js starter app for spoiler-free anime recomme
 - Tailwind CSS
 - shadcn-style reusable UI primitives
 - AniList GraphQL API
-- Supabase-ready client structure for auth and saved anime
-- OpenAI-ready recommendation engine placeholder
+- Supabase auth, saved anime, ratings, and taste profile signals
+- OpenAI-ready recommendation reranker with a rule-based fallback
 
 ## Install
 
@@ -40,9 +40,9 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 AniList public reads do not require an API key.
 
-## Supabase Setup Later
+## Supabase Setup
 
-The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, saved anime, ratings, and profile UI. For a production pass:
+The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, saved anime, ratings, and profile UI.
 
 - Create a Supabase project.
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
@@ -53,16 +53,23 @@ The app includes `lib/supabase/client.ts`, `supabase/schema.sql`, saved anime, r
 - Enable manual identity linking if you want guest users to link Google from the Profile page.
 - Add redirect URLs such as `http://127.0.0.1:3000/profile` and your production `/profile` URL.
 
-## OpenAI Setup Later
+## Recommendation Engine
 
-The `/api/recommend` route currently uses rule-based mood filters. `lib/openai/recommendation-engine.ts` is structured for a future AI layer.
+The `/api/recommend` route works in three layers:
 
-For a production pass:
+- Rule-based mood filters convert words like `dark`, `short`, `sports`, and `cozy` into AniList genres/tags.
+- Taste-aware ranking reads the signed-in or guest Supabase profile and boosts matches based on saved genres, ratings, completed shows, and preferred episode length.
+- Optional OpenAI reranking uses the server-only `OPENAI_API_KEY` to choose and explain the strongest spoiler-free picks from AniList candidates.
+
+OpenAI is not required. Without `OPENAI_API_KEY`, recommendations fall back to the taste-aware local ranker.
+
+For AI mode:
 
 - Set `OPENAI_API_KEY` server-side only.
+- Optionally set `OPENAI_MODEL`.
 - Keep recommendation calls inside API routes or server actions.
-- Send AniList candidates plus user taste signals to the model.
-- Require spoiler-free JSON output with titles, IDs, and concise reasons.
+- Send only AniList candidates and compact taste signals to the model.
+- Require spoiler-free structured JSON output with AniList IDs and concise reasons.
 
 ## Scripts
 
@@ -76,6 +83,6 @@ npm run build
 - `/` - Mood search home screen
 - `/recommendations?mood=cozy%20slice%20of%20life` - Recommendation grid
 - `/anime/[id]` - Anime detail page
-- `/profile` - Authenticated profile placeholder
+- `/profile` - Auth, saved anime, statuses, ratings, and taste profile
 - `/api/anilist/search?q=naruto` - AniList search API
-- `/api/recommend?mood=dark%20thriller` - Recommendation API
+- `/api/recommend?mood=dark%20thriller` - Personalized recommendation API

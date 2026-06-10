@@ -125,7 +125,8 @@ export async function getAnimeById(id: number): Promise<Anime | null> {
 }
 
 export async function fetchAnimeByMoodFilters(
-  filters: MoodFilters
+  filters: MoodFilters,
+  perPage = 12
 ): Promise<Anime[]> {
   const data = await anilistFetch<{
     Page: {
@@ -138,8 +139,9 @@ export async function fetchAnimeByMoodFilters(
         $tags: [String]
         $maxEpisodes: Int
         $sort: [MediaSort]
+        $perPage: Int
       ) {
-        Page(page: 1, perPage: 12) {
+        Page(page: 1, perPage: $perPage) {
           media(
             type: ANIME
             isAdult: false
@@ -159,6 +161,7 @@ export async function fetchAnimeByMoodFilters(
       tags: filters.tags.length ? filters.tags : undefined,
       maxEpisodes: filters.maxEpisodes ? filters.maxEpisodes + 1 : undefined,
       sort: filters.sort,
+      perPage,
     }
   );
 

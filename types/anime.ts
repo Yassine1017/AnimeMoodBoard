@@ -51,8 +51,18 @@ export type RecommendationResult = {
   matchedFilters: string[];
 };
 
+export type RecommendationPersonalization = {
+  mode: "rule-based" | "taste-aware" | "ai";
+  usedTasteProfile: boolean;
+  usedAi: boolean;
+  topGenres: string[];
+  averageRating?: number;
+  savedAnimeCount: number;
+};
+
 export type RecommendationResponse = {
   mood: string;
   filters: MoodFilters;
   results: RecommendationResult[];
+  personalization?: RecommendationPersonalization;
 };
