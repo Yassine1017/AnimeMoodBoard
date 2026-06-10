@@ -1,4 +1,5 @@
 import { AnimeGrid } from "@/components/anime-grid";
+import { ContinueWatching } from "@/components/continue-watching";
 import { MoodSearch } from "@/components/mood-search";
 import { getRecommendations } from "@/lib/recommendations";
 
@@ -43,6 +44,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <ContinueWatching />
     </main>
   );
 }

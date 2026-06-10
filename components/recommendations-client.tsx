@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 import { AnimeGrid } from "@/components/anime-grid";
 import { EmptyState } from "@/components/empty-state";
 import { MoodSearch } from "@/components/mood-search";
+import { RecommendationFeedback } from "@/components/recommendation-feedback";
 import { createOptionalBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { RecommendationResponse } from "@/types/anime";
 
@@ -130,7 +131,13 @@ export function RecommendationsClient({ mood }: RecommendationsClientProps) {
       ) : error ? (
         <EmptyState title="AniList is taking a breather" description={error} />
       ) : recommendation?.results.length ? (
-        <AnimeGrid results={recommendation.results} mood={recommendation.mood} />
+        <>
+          <RecommendationFeedback
+            mood={recommendation.mood}
+            topResult={recommendation.results[0]}
+          />
+          <AnimeGrid results={recommendation.results} mood={recommendation.mood} />
+        </>
       ) : (
         <EmptyState
           title="No matches yet"

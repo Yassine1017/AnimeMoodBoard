@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { ContinueWatching } from "@/components/continue-watching";
 import { EmptyState } from "@/components/empty-state";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -500,6 +501,8 @@ export function ProfileClient() {
           );
         })}
       </section>
+
+      <ContinueWatching variant="profile" />
 
       <TasteProfilePanel taste={taste} />
 
