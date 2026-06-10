@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Minus, Plus, RotateCcw } from "lucide-react";
+import { EyeOff, Minus, Plus, RotateCcw, Sparkles, Star } from "lucide-react";
 
+import { animeTitle } from "@/lib/format";
 import { animeCachePayload } from "@/lib/supabase/anime-cache";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,10 @@ type SavedProgressRow = {
   last_watched_at?: string | null;
 };
 
+type RatingRow = {
+  rating: number | null;
+};
+
 type WatchProgressPanelProps = {
   anime: Anime;
 };
@@ -39,8 +45,10 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
   const [savedProgress, setSavedProgress] = useState<SavedProgress | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [draftEpisode, setDraftEpisode] = useState(0);
+  const [rating, setRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hiding, setHiding] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [needsMigration, setNeedsMigration] = useState(false);
@@ -54,6 +62,10 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
     episodeTotal && currentEpisode
       ? Math.min(100, Math.round((currentEpisode / episodeTotal) * 100))
       : 0;
+  const canRate = canRateAnime(savedProgress, episodeTotal);
+  const moreLikeThisMood = `${animeTitle(anime.title)} ${anime.genres
+    .slice(0, 2)
+    .join(" ")} similar anime`;
 
   useEffect(() => {
     let active = true;
@@ -75,6 +87,7 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
         setUserId(null);
         setSavedProgress(null);
         setDraftEpisode(0);
+        setRating(null);
         setLoading(false);
         return;
       }
@@ -110,6 +123,18 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
         : null;
       setSavedProgress(normalized);
       setDraftEpisode(normalized?.progressEpisode ?? 0);
+
+      const { data: ratingData } = await supabase
+        .from("anime_ratings")
+        .select("rating")
+        .eq("user_id", session.user.id)
+        .eq("anilist_id", anime.id)
+        .maybeSingle();
+
+      if (active) {
+        setRating(((ratingData as RatingRow | null)?.rating as number | null) ?? null);
+      }
+
       setLoading(false);
     }
 
@@ -127,21 +152,35 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
     };
   }, [anime.id, supabase]);
 
-  async function ensureUserId() {
-    if (userId) {
-      return userId;
+  async function ensureSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      setUserId(session.user.id);
+      return session;
     }
 
     const { data, error: signInError } = await supabase.auth.signInAnonymously();
 
-    if (signInError || !data.user) {
+    if (signInError || !data.session?.user) {
       throw new Error(
         "Anonymous auth is not enabled in Supabase. Enable it or sign in first."
       );
     }
 
-    setUserId(data.user.id);
-    return data.user.id;
+    setUserId(data.session.user.id);
+    return data.session;
+  }
+
+  async function ensureUserId() {
+    if (userId) {
+      return userId;
+    }
+
+    const session = await ensureSession();
+    return session.user.id;
   }
 
   async function cacheAnime() {
@@ -257,6 +296,90 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
     await saveProgress(completedEpisode, status);
   }
 
+  async function saveRating(nextRating: number | null) {
+    if (!savedProgress || !canRate) {
+      setError(getRatingLockMessage(savedProgress, episodeTotal));
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const session = await ensureSession();
+      await cacheAnime();
+
+      if (nextRating === null) {
+        const { error: deleteError } = await supabase
+          .from("anime_ratings")
+          .delete()
+          .eq("user_id", session.user.id)
+          .eq("anilist_id", anime.id);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+
+        setRating(null);
+        setMessage("Rating cleared.");
+        return;
+      }
+
+      const { error: ratingError } = await supabase.from("anime_ratings").upsert(
+        {
+          user_id: session.user.id,
+          anilist_id: anime.id,
+          rating: nextRating,
+        },
+        { onConflict: "user_id,anilist_id" }
+      );
+
+      if (ratingError) {
+        throw ratingError;
+      }
+
+      setRating(nextRating);
+      setMessage(`Rated ${nextRating}/10.`);
+    } catch (ratingError) {
+      handleProgressError(ratingError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function hideSimilarPicks() {
+    setHiding(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const session = await ensureSession();
+      const response = await fetch("/api/hidden-anime", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          anilistId: anime.id,
+          reason: "detail_hidden",
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not hide similar picks.");
+      }
+
+      setMessage("Similar picks will avoid this anime.");
+    } catch (hideError) {
+      handleProgressError(hideError);
+    } finally {
+      setHiding(false);
+    }
+  }
+
   function handleProgressError(progressError: unknown) {
     const message =
       progressError instanceof Error
@@ -285,24 +408,37 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
     <aside className="rounded-lg border border-line bg-white/[0.045] p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-semibold text-white">Watch progress</h2>
+          <h2 className="text-base font-semibold text-white">Watch hub</h2>
           <p className="mt-2 text-sm leading-6 text-white/58">
             {savedProgress
               ? "Synced to your Anime Moodboard profile."
               : "Start tracking to remember your last watched episode."}
           </p>
         </div>
-        {savedProgress?.status === "completed" ? (
-          <CheckCircle2 className="h-5 w-5 text-emerald-300" aria-hidden="true" />
-        ) : null}
+        <span
+          className={cn(
+            "rounded-md px-2 py-1 text-xs font-semibold",
+            savedProgress?.status === "completed"
+              ? "bg-emerald-400/12 text-emerald-200"
+              : savedProgress?.status === "watching"
+                ? "bg-aqua/10 text-aqua"
+                : "bg-white/8 text-white/58"
+          )}
+        >
+          {savedProgress ? statusLabel(savedProgress.status) : "Not saved"}
+        </span>
       </div>
 
       <div className="mt-5 rounded-md border border-white/10 bg-ink/42 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/42">
-          Stopped at
+          Current episode
         </p>
         <p className="mt-2 text-3xl font-semibold text-white">
-          {currentEpisode ? `Episode ${currentEpisode}` : "Not started"}
+          {episodeTotal
+            ? `Episode ${currentEpisode} of ${episodeTotal}`
+            : currentEpisode
+              ? `Episode ${currentEpisode}`
+              : "Not started"}
         </p>
         <p className="mt-2 text-sm text-white/54">
           {episodeTotal
@@ -394,7 +530,7 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
               disabled={saving || nextEpisode === null}
               className="inline-flex h-11 items-center justify-center rounded-md border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {nextEpisode ? `Watched ${nextEpisode}` : "Completed"}
+              {nextEpisode ? "Watched next episode" : "Completed"}
             </button>
           </div>
 
@@ -427,6 +563,54 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
               Last updated {new Date(savedProgress.lastWatchedAt).toLocaleDateString()}
             </p>
           ) : null}
+
+          <div className="rounded-md border border-white/10 bg-ink/35 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/42">
+                Rating
+              </p>
+              {rating ? (
+                <button
+                  type="button"
+                  onClick={() => saveRating(null)}
+                  className="text-xs font-semibold text-white/48 transition hover:text-white"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {[2, 4, 6, 8, 10].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => saveRating(value)}
+                  disabled={!canRate || saving}
+                  title={canRate ? `Rate ${value}/10` : getRatingLockMessage(savedProgress, episodeTotal)}
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-md border text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45",
+                    rating && value <= rating
+                      ? "border-ember bg-ember text-ink"
+                      : "border-white/12 bg-white/8 text-white/56 hover:bg-white/12 hover:text-white"
+                  )}
+                  aria-label={`Rate ${animeTitle(anime.title)} ${value} out of 10`}
+                >
+                  <Star
+                    className={cn("h-4 w-4", rating && value <= rating && "fill-current")}
+                    aria-hidden="true"
+                  />
+                </button>
+              ))}
+              <span className="ml-1 self-center text-xs font-semibold text-white/48">
+                {rating ? `${rating}/10` : "Not rated"}
+              </span>
+            </div>
+            {!canRate ? (
+              <p className="mt-2 text-xs leading-5 text-white/42">
+                {getRatingLockMessage(savedProgress, episodeTotal)}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <button
@@ -438,6 +622,25 @@ export function WatchProgressPanel({ anime }: WatchProgressPanelProps) {
           {saving ? "Starting..." : "Start tracking"}
         </button>
       )}
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+        <Link
+          href={`/recommendations?mood=${encodeURIComponent(moreLikeThisMood)}`}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/12 bg-white/8 px-3 text-sm font-semibold text-white transition hover:bg-white/12"
+        >
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+          More like this
+        </Link>
+        <button
+          type="button"
+          onClick={hideSimilarPicks}
+          disabled={hiding}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/12 bg-white/8 px-3 text-sm font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <EyeOff className="h-4 w-4" aria-hidden="true" />
+          {hiding ? "Hiding..." : "Hide similar"}
+        </button>
+      </div>
 
       {message ? (
         <p className="mt-4 rounded-md border border-aqua/25 bg-aqua/10 px-3 py-2 text-sm text-aqua">
@@ -475,6 +678,53 @@ function normalizeStatus(status: string): SavedStatus {
   }
 
   return "saved";
+}
+
+function statusLabel(status: SavedStatus) {
+  if (status === "watching") {
+    return "Watching";
+  }
+
+  if (status === "completed") {
+    return "Completed";
+  }
+
+  return "Saved";
+}
+
+function canRateAnime(
+  savedProgress: SavedProgress | null,
+  episodeTotal: number | null
+) {
+  if (!savedProgress) {
+    return false;
+  }
+
+  if (savedProgress.status === "completed") {
+    return true;
+  }
+
+  if (!episodeTotal) {
+    return false;
+  }
+
+  return savedProgress.progressEpisode > episodeTotal / 2;
+}
+
+function getRatingLockMessage(
+  savedProgress: SavedProgress | null,
+  episodeTotal: number | null
+) {
+  if (!savedProgress) {
+    return "Start tracking before rating this anime.";
+  }
+
+  if (!episodeTotal) {
+    return "Episode count is unknown, so mark it completed before rating.";
+  }
+
+  const requiredEpisode = Math.floor(episodeTotal / 2) + 1;
+  return `Watch past episode ${requiredEpisode - 1} to rate this anime.`;
 }
 
 function clampEpisode(value: number, maxEpisode: number) {

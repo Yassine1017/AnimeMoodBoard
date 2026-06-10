@@ -62,6 +62,7 @@ The `/api/recommend` route works in three layers:
 - Rule-based mood filters convert words like `dark`, `short`, `sports`, and `cozy` into AniList genres/tags.
 - Taste-aware ranking reads the signed-in or guest Supabase profile and boosts matches based on saved genres, ratings, completed shows, and preferred episode length.
 - Recommendation memory stores feedback clicks, hidden anime, and seen anime so repeated searches can avoid stale picks and respond to preferences like shorter or more emotional.
+- Taste onboarding stores favorite genres, disliked genres, preferred length, tone keywords, and three liked anime in Supabase so recommendations can personalize before the library is large.
 - Optional OpenAI reranking uses the server-only `OPENAI_API_KEY` to choose and explain the strongest spoiler-free picks from AniList candidates.
 
 OpenAI is not required. Without `OPENAI_API_KEY`, recommendations fall back to the taste-aware local ranker.
@@ -88,6 +89,7 @@ npm run build
 - `/recommendations?mood=cozy%20slice%20of%20life` - Recommendation grid
 - `/anime/[id]` - Anime detail page
 - `/library` - Saved anime, watching, completed, ratings, and progress management
+- `/onboarding` - Taste setup for favorite genres, disliked genres, length, tones, and liked anime
 - `/profile` - Account, auth, stats, and taste profile overview
 - `/api/anilist/search?q=naruto` - AniList search API
 - `/api/browse?q=naruto&genre=Action&sort=SCORE_DESC` - Filtered AniList browse API

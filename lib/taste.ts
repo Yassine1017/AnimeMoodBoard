@@ -16,17 +16,31 @@ export type TasteProfile = {
   savedAnimeIds: number[];
   topGenres: string[];
   genreWeights: Record<string, number>;
+  dislikedGenres: string[];
+  moodKeywords: string[];
   preferredEpisodeCount?: number;
   averageRating?: number;
   likedAnime: TasteAnime[];
   completedAnime: TasteAnime[];
 };
 
-export function buildTasteProfile(items: TasteAnime[]): TasteProfile {
+export type TastePreferenceInput = {
+  favoriteGenres?: string[];
+  dislikedGenres?: string[];
+  preferredEpisodeCount?: number;
+  moodKeywords?: string[];
+};
+
+export function buildTasteProfile(
+  items: TasteAnime[],
+  preferences: TastePreferenceInput = {}
+): TasteProfile {
   const genreWeights = new Map<string, number>();
   const likedAnime = items.filter((item) => !item.rating || item.rating >= 7);
   const completedAnime = items.filter((item) => item.status === "completed");
   const ratedAnime = items.filter((item) => item.rating);
+  const favoriteGenres = unique(preferences.favoriteGenres ?? []);
+  const dislikedGenres = unique(preferences.dislikedGenres ?? []);
   let episodeTotal = 0;
   let episodeCount = 0;
   let ratingTotal = 0;
@@ -48,20 +62,30 @@ export function buildTasteProfile(items: TasteAnime[]): TasteProfile {
     }
   });
 
+  favoriteGenres.forEach((genre) => {
+    genreWeights.set(genre, (genreWeights.get(genre) ?? 0) + 5);
+  });
+
   const topGenres = Array.from(genreWeights.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([genre]) => genre);
 
   return {
-    savedAnimeCount: items.length,
+    savedAnimeCount:
+      items.length +
+      favoriteGenres.length +
+      dislikedGenres.length +
+      (preferences.moodKeywords?.length ?? 0),
     ratedAnimeCount: ratedAnime.length,
     savedAnimeIds: items.map((item) => item.anilistId),
     topGenres,
     genreWeights: Object.fromEntries(genreWeights),
-    preferredEpisodeCount: episodeCount
-      ? Math.round(episodeTotal / episodeCount)
-      : undefined,
+    dislikedGenres,
+    moodKeywords: unique(preferences.moodKeywords ?? []),
+    preferredEpisodeCount:
+      preferences.preferredEpisodeCount ??
+      (episodeCount ? Math.round(episodeTotal / episodeCount) : undefined),
     averageRating: ratedAnime.length
       ? Number((ratingTotal / ratedAnime.length).toFixed(1))
       : undefined,
@@ -76,9 +100,14 @@ export function scoreAnimeForTaste(anime: Anime, taste?: TasteProfile) {
   }
 
   let score = 0;
+  const dislikedGenres = new Set(taste.dislikedGenres);
 
   anime.genres.forEach((genre) => {
     score += taste.genreWeights[genre] ?? 0;
+
+    if (dislikedGenres.has(genre)) {
+      score -= 6;
+    }
   });
 
   if (anime.episodes && taste.preferredEpisodeCount) {
@@ -107,4 +136,8 @@ export function buildTasteReason(anime: Anime, taste?: TasteProfile) {
   }
 
   return "Taste-aware pick: it balances your mood with popular AniList signals and your saved anime profile.";
+}
+
+function unique<T>(items: T[]) {
+  return Array.from(new Set(items));
 }

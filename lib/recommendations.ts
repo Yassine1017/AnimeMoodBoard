@@ -6,6 +6,7 @@ import {
   buildTasteReason,
   scoreAnimeForTaste,
   type TasteAnime,
+  type TastePreferenceInput,
   type TasteProfile,
 } from "@/lib/taste";
 import type {
@@ -67,6 +68,13 @@ type SavedTasteRow = {
 type RatingRow = {
   anilist_id: number;
   rating: number;
+};
+
+type TasteProfileRow = {
+  favorite_genres: string[] | null;
+  disliked_genres: string[] | null;
+  preferred_episode_count: string | null;
+  mood_keywords: string[] | null;
 };
 
 type RecommendationFeedbackRow = {
@@ -491,6 +499,7 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
   }
 
   const memory = await getRecommendationMemory(supabase, user.id);
+  const tastePreferences = await getTastePreferences(supabase, user.id);
 
   const { data: savedRows, error: savedError } = await supabase
     .from("saved_anime")
@@ -511,7 +520,13 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
     .eq("user_id", user.id);
 
   if (savedError) {
-    return { userId: user.id, memory };
+    return {
+      userId: user.id,
+      memory,
+      profile: hasTastePreferences(tastePreferences)
+        ? buildTasteProfile([], tastePreferences)
+        : undefined,
+    };
   }
 
   const saved = (savedRows ?? []) as SavedTasteRow[];
@@ -547,8 +562,46 @@ async function getTasteContext(accessToken?: string): Promise<TasteContext> {
   return {
     userId: user.id,
     memory,
-    profile: tasteItems.length ? buildTasteProfile(tasteItems) : undefined,
+    profile:
+      tasteItems.length || hasTastePreferences(tastePreferences)
+        ? buildTasteProfile(tasteItems, tastePreferences)
+        : undefined,
   };
+}
+
+async function getTastePreferences(
+  supabase: NonNullable<ReturnType<typeof createUserSupabaseClient>>,
+  userId: string
+): Promise<TastePreferenceInput> {
+  const { data, error } = await supabase
+    .from("taste_profiles")
+    .select(
+      "favorite_genres, disliked_genres, preferred_episode_count, mood_keywords"
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {};
+  }
+
+  const row = data as TasteProfileRow;
+
+  return {
+    favoriteGenres: row.favorite_genres ?? [],
+    dislikedGenres: row.disliked_genres ?? [],
+    preferredEpisodeCount: mapPreferredLength(row.preferred_episode_count),
+    moodKeywords: row.mood_keywords ?? [],
+  };
+}
+
+function hasTastePreferences(preferences: TastePreferenceInput) {
+  return Boolean(
+    preferences.favoriteGenres?.length ||
+      preferences.dislikedGenres?.length ||
+      preferences.preferredEpisodeCount ||
+      preferences.moodKeywords?.length
+  );
 }
 
 async function getRecommendationMemory(
@@ -757,6 +810,22 @@ function buildReason(anime: Anime, filters: MoodFilters): string {
   }
 
   return "A popular, well-scored match that overlaps with the mood and genre signals you gave.";
+}
+
+function mapPreferredLength(value?: string | null) {
+  if (value === "short") {
+    return 12;
+  }
+
+  if (value === "medium") {
+    return 24;
+  }
+
+  if (value === "long") {
+    return 75;
+  }
+
+  return undefined;
 }
 
 function unique<T>(items: T[]) {

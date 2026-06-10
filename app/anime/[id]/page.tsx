@@ -96,15 +96,18 @@ export default async function AnimeDetailPage({ params }: AnimeDetailPageProps) 
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <SaveButton anime={anime} />
-              <ButtonLink href="/profile" variant="secondary">
-                Rate later
+              <ButtonLink href="#watch-hub" variant="secondary">
+                Track progress
               </ButtonLink>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section
+        id="watch-hub"
+        className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+      >
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(280px,0.28fr)]">
           <div>
             <h2 className="text-xl font-semibold text-white">Tags</h2>

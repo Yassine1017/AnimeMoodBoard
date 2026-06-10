@@ -33,6 +33,22 @@ type RatingRow = {
   rating: number;
 };
 
+type OnboardedTasteProfile = {
+  favoriteGenres: string[];
+  dislikedGenres: string[];
+  preferredLength: string | null;
+  moodKeywords: string[];
+  profileSummary: string | null;
+};
+
+type OnboardedTasteRow = {
+  favorite_genres: string[] | null;
+  disliked_genres: string[] | null;
+  preferred_episode_count: string | null;
+  mood_keywords: string[] | null;
+  profile_summary: string | null;
+};
+
 type SavedAnime = {
   id: string;
   status: string;
@@ -55,6 +71,8 @@ export function ProfileClient() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [session, setSession] = useState<Session | null>(null);
   const [savedAnime, setSavedAnime] = useState<SavedAnime[]>([]);
+  const [onboardedTaste, setOnboardedTaste] =
+    useState<OnboardedTasteProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingAuth, setSavingAuth] = useState(false);
   const [email, setEmail] = useState("");
@@ -107,10 +125,12 @@ export function ProfileClient() {
 
     if (!currentSession?.user) {
       setSavedAnime([]);
+      setOnboardedTaste(null);
       setLoading(false);
       return;
     }
 
+    const tasteProfilePromise = loadTastePreferences(currentSession.user.id);
     const { data, error: savedError } = await supabase
       .from("saved_anime")
       .select(
@@ -130,6 +150,7 @@ export function ProfileClient() {
     if (savedError) {
       setError(savedError.message);
       setSavedAnime([]);
+      setOnboardedTaste(await tasteProfilePromise);
       setLoading(false);
       return;
     }
@@ -160,7 +181,24 @@ export function ProfileClient() {
         rating: ratingsByAnime.get(item.anime.anilist_id) ?? null,
       }))
     );
+    setOnboardedTaste(await tasteProfilePromise);
     setLoading(false);
+  }
+
+  async function loadTastePreferences(userId: string) {
+    const { data, error: tasteError } = await supabase
+      .from("taste_profiles")
+      .select(
+        "favorite_genres, disliked_genres, preferred_episode_count, mood_keywords, profile_summary"
+      )
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (tasteError || !data) {
+      return null;
+    }
+
+    return normalizeOnboardedTaste(data as OnboardedTasteRow);
   }
 
   async function continueAsGuest() {
@@ -303,13 +341,22 @@ export function ProfileClient() {
             live in Library.
           </p>
           <div className="mt-6">
-            <Link
-              href="/library"
-              className="inline-flex h-11 items-center gap-2 rounded-md bg-ember px-4 text-sm font-semibold text-ink transition hover:bg-[#ff7a91]"
-            >
-              <Library className="h-4 w-4" aria-hidden="true" />
-              Open Library
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/library"
+                className="inline-flex h-11 items-center gap-2 rounded-md bg-ember px-4 text-sm font-semibold text-ink transition hover:bg-[#ff7a91]"
+              >
+                <Library className="h-4 w-4" aria-hidden="true" />
+                Open Library
+              </Link>
+              <Link
+                href="/onboarding"
+                className="inline-flex h-11 items-center gap-2 rounded-md border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                Tune taste
+              </Link>
+            </div>
           </div>
         </div>
         <AuthPanel
@@ -348,7 +395,7 @@ export function ProfileClient() {
         })}
       </section>
 
-      <TasteProfilePanel taste={taste} />
+      <TasteProfilePanel onboardedTaste={onboardedTaste} taste={taste} />
     </main>
   );
 }
@@ -492,7 +539,15 @@ function AuthPanel({
   );
 }
 
-function TasteProfilePanel({ taste }: { taste: TasteProfile }) {
+function TasteProfilePanel({
+  onboardedTaste,
+  taste,
+}: {
+  onboardedTaste: OnboardedTasteProfile | null;
+  taste: TasteProfile;
+}) {
+  const summary = onboardedTaste?.profileSummary || taste.summary;
+
   return (
     <section className="mt-10 rounded-lg border border-line bg-white/[0.045] p-5">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -501,14 +556,42 @@ function TasteProfilePanel({ taste }: { taste: TasteProfile }) {
             <Sparkles className="h-5 w-5 text-aqua" aria-hidden="true" />
             <h2 className="text-xl font-semibold text-white">Taste profile</h2>
           </div>
-          <p className="mt-3 text-sm leading-6 text-white/62">{taste.summary}</p>
+          <p className="mt-3 text-sm leading-6 text-white/62">{summary}</p>
+          <Link
+            href="/onboarding"
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-white/12 bg-white/8 px-3 text-sm font-semibold text-white transition hover:bg-white/12"
+          >
+            {onboardedTaste ? "Edit taste setup" : "Start taste setup"}
+          </Link>
         </div>
         <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-3 lg:min-w-[520px]">
-          <TasteMetric label="Top genres" value={taste.topGenres.join(", ") || "No signal"} />
-          <TasteMetric label="Watch length" value={taste.preferredLength} />
-          <TasteMetric label="Avg rating" value={taste.averageRating} />
+          <TasteMetric
+            label="Favorite genres"
+            value={
+              onboardedTaste?.favoriteGenres.length
+                ? onboardedTaste.favoriteGenres.slice(0, 3).join(", ")
+                : taste.topGenres.join(", ") || "No signal"
+            }
+          />
+          <TasteMetric
+            label="Watch length"
+            value={formatPreferredLength(onboardedTaste?.preferredLength) || taste.preferredLength}
+          />
+          <TasteMetric
+            label="Tones"
+            value={
+              onboardedTaste?.moodKeywords.length
+                ? onboardedTaste.moodKeywords.join(", ")
+                : "No tones"
+            }
+          />
         </div>
       </div>
+      {onboardedTaste?.dislikedGenres.length ? (
+        <div className="mt-5 rounded-md border border-aqua/20 bg-aqua/10 px-3 py-2 text-sm font-medium text-aqua">
+          Down-ranking {onboardedTaste.dislikedGenres.slice(0, 4).join(", ")}.
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -541,6 +624,34 @@ function normalizeSavedRows(rows: SavedAnimeRow[]): SavedAnime[] {
       },
     ];
   });
+}
+
+function normalizeOnboardedTaste(
+  row: OnboardedTasteRow
+): OnboardedTasteProfile {
+  return {
+    favoriteGenres: row.favorite_genres ?? [],
+    dislikedGenres: row.disliked_genres ?? [],
+    preferredLength: row.preferred_episode_count,
+    moodKeywords: row.mood_keywords ?? [],
+    profileSummary: row.profile_summary,
+  };
+}
+
+function formatPreferredLength(value?: string | null) {
+  if (value === "short") {
+    return "Short series";
+  }
+
+  if (value === "medium") {
+    return "Medium series";
+  }
+
+  if (value === "long") {
+    return "Longer watches";
+  }
+
+  return "";
 }
 
 function buildTasteProfile(items: SavedAnime[]): TasteProfile {
