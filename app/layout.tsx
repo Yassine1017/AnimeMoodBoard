@@ -49,6 +49,12 @@ export default function RootLayout({
                   Library
                 </Link>
                 <Link
+                  href="/taste-lab"
+                  className="hidden rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:inline sm:px-3"
+                >
+                  Lab
+                </Link>
+                <Link
                   href="/onboarding"
                   className="inline-flex items-center gap-1.5 rounded-md border border-ember/40 bg-ember/14 px-2 py-2 font-semibold text-ember transition hover:bg-ember hover:text-ink sm:px-3"
                 >
