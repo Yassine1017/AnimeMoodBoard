@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   FormEvent,
   type ReactNode,
@@ -13,6 +14,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 
 import { AnimeGrid } from "@/components/anime-grid";
 import { EmptyState } from "@/components/empty-state";
+import { animeTitle } from "@/lib/format";
 import type {
   Anime,
   BrowseSort,
@@ -33,6 +35,11 @@ type BrowseForm = {
 type BrowsePayload = {
   results: Anime[];
   pageInfo?: PageInfo;
+  error?: string;
+};
+
+type SearchPayload = {
+  results?: Anime[];
   error?: string;
 };
 
@@ -82,6 +89,9 @@ export function BrowseClient() {
   );
   const [form, setForm] = useState<BrowseForm>(initialForm);
   const [results, setResults] = useState<RecommendationResult[]>([]);
+  const [suggestions, setSuggestions] = useState<Anime[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [pageInfo, setPageInfo] = useState<PageInfo>({
     currentPage: 1,
     hasNextPage: false,
@@ -145,9 +155,68 @@ export function BrowseClient() {
     void loadResults(initialForm, false);
   }, [initialForm, loadResults]);
 
+  useEffect(() => {
+    const query = form.query.trim();
+
+    if (query.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSuggestionsLoading(true);
+
+      try {
+        const response = await fetch(
+          `/api/anilist/search?q=${encodeURIComponent(query)}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+        const payload = (await response.json()) as SearchPayload;
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Search suggestions unavailable.");
+        }
+
+        setSuggestions((payload.results ?? []).slice(0, 6));
+        setSuggestionsOpen(true);
+      } catch (suggestionError) {
+        if (
+          suggestionError instanceof DOMException &&
+          suggestionError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setSuggestions([]);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [form.query]);
+
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSuggestionsOpen(false);
     void loadResults({ ...form, page: 1 });
+  }
+
+  function searchSuggestion(anime: Anime) {
+    const title = animeTitle(anime.title);
+    const nextForm = { ...form, query: title, page: 1 };
+
+    setForm(nextForm);
+    setSuggestionsOpen(false);
+    void loadResults(nextForm);
   }
 
   function goToPage(page: number) {
@@ -193,17 +262,39 @@ export function BrowseClient() {
             <input
               value={form.query}
               onChange={(event) =>
-                setForm((current) => ({ ...current, query: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  page: 1,
+                  query: event.target.value,
+                }))
               }
+              onFocus={() => {
+                if (suggestions.length) {
+                  setSuggestionsOpen(true);
+                }
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setSuggestionsOpen(false), 120);
+              }}
               placeholder="Search by anime title"
+              autoComplete="off"
               className="h-12 w-full rounded-md border border-white/16 bg-ink/48 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-white/42 focus:border-ember focus:ring-2 focus:ring-ember/35"
+            />
+            <SearchSuggestions
+              loading={suggestionsLoading}
+              open={suggestionsOpen}
+              query={form.query}
+              suggestions={suggestions}
+              onSelect={searchSuggestion}
             />
           </label>
 
           <SelectField
             label="Genre"
             value={form.genre}
-            onChange={(value) => setForm((current) => ({ ...current, genre: value }))}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, genre: value, page: 1 }))
+            }
           >
             <option value="">Any genre</option>
             {genreOptions.map((genre) => (
@@ -218,7 +309,11 @@ export function BrowseClient() {
             <input
               value={form.year}
               onChange={(event) =>
-                setForm((current) => ({ ...current, year: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  page: 1,
+                  year: event.target.value,
+                }))
               }
               inputMode="numeric"
               placeholder="Year"
@@ -230,7 +325,7 @@ export function BrowseClient() {
             label="Episodes"
             value={form.maxEpisodes}
             onChange={(value) =>
-              setForm((current) => ({ ...current, maxEpisodes: value }))
+              setForm((current) => ({ ...current, maxEpisodes: value, page: 1 }))
             }
           >
             <option value="">Any length</option>
@@ -244,7 +339,7 @@ export function BrowseClient() {
             label="Score"
             value={form.minScore}
             onChange={(value) =>
-              setForm((current) => ({ ...current, minScore: value }))
+              setForm((current) => ({ ...current, minScore: value, page: 1 }))
             }
           >
             <option value="">Any score</option>
@@ -258,7 +353,11 @@ export function BrowseClient() {
             label="Sort"
             value={form.sort}
             onChange={(value) =>
-              setForm((current) => ({ ...current, sort: value as BrowseSort }))
+              setForm((current) => ({
+                ...current,
+                page: 1,
+                sort: value as BrowseSort,
+              }))
             }
           >
             {sortOptions.map((option) => (
@@ -273,6 +372,7 @@ export function BrowseClient() {
             type="button"
             onClick={() => {
               setForm(defaultForm);
+              setSuggestionsOpen(false);
               void loadResults(defaultForm);
             }}
             className="h-10 rounded-md border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white/72 transition hover:bg-white/12 hover:text-white focus:outline-none focus:ring-2 focus:ring-ember focus:ring-offset-2 focus:ring-offset-ink"
@@ -335,6 +435,90 @@ function SelectField({ children, label, value, onChange }: SelectFieldProps) {
         {children}
       </select>
     </label>
+  );
+}
+
+function SearchSuggestions({
+  loading,
+  onSelect,
+  open,
+  query,
+  suggestions,
+}: {
+  loading: boolean;
+  onSelect: (anime: Anime) => void;
+  open: boolean;
+  query: string;
+  suggestions: Anime[];
+}) {
+  if (!open || query.trim().length < 2) {
+    return null;
+  }
+
+  return (
+    <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-lg border border-line bg-ink/95 shadow-aura backdrop-blur">
+      <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/42">
+        {loading ? "Searching AniList" : "Title matches"}
+      </div>
+      {suggestions.length ? (
+        <div className="max-h-[420px] overflow-y-auto p-1.5">
+          {suggestions.map((anime) => {
+            const title = animeTitle(anime.title);
+            const poster = anime.coverImage.large || anime.coverImage.extraLarge;
+
+            return (
+              <button
+                key={anime.id}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onSelect(anime)}
+                className="flex w-full items-center gap-3 rounded-md p-2 text-left transition hover:bg-white/8 focus:bg-white/8 focus:outline-none"
+              >
+                <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded border border-white/10 bg-panel">
+                  {poster ? (
+                    <Image
+                      src={poster}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="44px"
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0">
+                  <p className="line-clamp-1 text-sm font-semibold text-white">
+                    {title}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-white/48">
+                    {[
+                      anime.averageScore ? `${anime.averageScore}%` : "",
+                      anime.episodes ? `${anime.episodes} episodes` : "",
+                      anime.seasonYear,
+                    ]
+                      .filter(Boolean)
+                      .join(" - ")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {anime.genres.slice(0, 2).map((genre) => (
+                      <span
+                        key={genre}
+                        className="rounded bg-white/8 px-1.5 py-0.5 text-[11px] font-semibold text-white/54"
+                      >
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="px-3 py-4 text-sm text-white/52">
+          {loading ? "Looking for matching titles..." : "No quick matches yet."}
+        </p>
+      )}
+    </div>
   );
 }
 

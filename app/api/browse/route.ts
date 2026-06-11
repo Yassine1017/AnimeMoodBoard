@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { browseAnime } from "@/lib/anilist";
+import { browseAnime, searchAnime } from "@/lib/anilist";
+import { animeTitle } from "@/lib/format";
+import type { Anime } from "@/types/anime";
 import type { BrowseFilters, BrowseSort } from "@/types/anime";
 
 const SORT_VALUES = new Set<BrowseSort>([
@@ -26,9 +28,20 @@ export async function GET(request: Request) {
 
   try {
     const browseResult = await browseAnime(filters);
+    const query = filters.query;
+    const titleResults =
+      query && filters.page === 1 ? await safeTitleSearch(query) : [];
+    const results = titleResults.length
+      ? mergeTitleResults(
+          query!,
+          titleResults,
+          browseResult.results,
+          filters.perPage ?? 24
+        )
+      : browseResult.results;
 
     return NextResponse.json({
-      results: browseResult.results,
+      results,
       pageInfo: browseResult.pageInfo,
       filters,
     });
@@ -41,6 +54,60 @@ export async function GET(request: Request) {
       { status: 502 }
     );
   }
+}
+
+async function safeTitleSearch(query: string) {
+  try {
+    return await searchAnime(query);
+  } catch {
+    return [];
+  }
+}
+
+function mergeTitleResults(
+  query: string,
+  titleResults: Anime[],
+  browseResults: Anime[],
+  limit: number
+) {
+  const normalizedQuery = normalizeTitle(query);
+  const exactTitleResults = titleResults.filter((anime) =>
+    titleValues(anime).some((title) => {
+      const normalizedTitle = normalizeTitle(title);
+      return (
+        normalizedTitle === normalizedQuery ||
+        normalizedTitle.startsWith(normalizedQuery)
+      );
+    })
+  );
+  const merged = [...exactTitleResults, ...browseResults, ...titleResults];
+  const seen = new Set<number>();
+
+  return merged.filter((anime) => {
+    if (seen.has(anime.id)) {
+      return false;
+    }
+
+    seen.add(anime.id);
+    return true;
+  }).slice(0, limit);
+}
+
+function titleValues(anime: Anime) {
+  return [
+    animeTitle(anime.title),
+    anime.title.romaji,
+    anime.title.english,
+    anime.title.native,
+  ].filter((title): title is string => Boolean(title));
+}
+
+function normalizeTitle(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function cleanText(value: string | null) {
