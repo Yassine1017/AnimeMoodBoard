@@ -1,7 +1,7 @@
-import { AnimeGrid } from "@/components/anime-grid";
 import { ContinueWatching } from "@/components/continue-watching";
 import { HomeDiscovery } from "@/components/home-discovery";
 import { MoodSearch } from "@/components/mood-search";
+import { TonightsBoard } from "@/components/tonights-board";
 import { getRecommendations } from "@/lib/recommendations";
 
 export default async function Home() {
@@ -27,20 +27,7 @@ export default async function Home() {
 
         <div className="flex items-center">
           <div className="w-full">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-aqua">
-                  Tonight&apos;s board
-                </h2>
-                <p className="mt-2 text-sm text-white/56">
-                  Live picks from AniList.
-                </p>
-              </div>
-            </div>
-            <AnimeGrid
-              results={initialResults.results.slice(0, 4)}
-              compact
-            />
+            <TonightsBoard results={initialResults.results} />
           </div>
         </div>
       </section>
