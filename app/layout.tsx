@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { House, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -36,6 +36,14 @@ export default function RootLayout({
                 </span>
               </Link>
               <div className="flex shrink-0 items-center gap-1 text-sm font-medium text-white/68">
+                <Link
+                  href="/"
+                  aria-label="Home"
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:px-3"
+                >
+                  <House className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Home</span>
+                </Link>
                 <Link
                   href="/browse"
                   className="rounded-md px-2 py-2 transition hover:bg-white/8 hover:text-white sm:px-3"
