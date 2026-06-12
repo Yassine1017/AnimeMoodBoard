@@ -33,14 +33,13 @@ export default async function Home() {
                   Tonight&apos;s board
                 </h2>
                 <p className="mt-2 text-sm text-white/56">
-                  Live picks for short, beautiful anime.
+                  Live picks from AniList.
                 </p>
               </div>
             </div>
             <AnimeGrid
               results={initialResults.results.slice(0, 4)}
               compact
-              mood={initialResults.mood}
             />
           </div>
         </div>

@@ -45,8 +45,11 @@ export function MoodSearch({ defaultValue = "", autoFocus }: MoodSearchProps) {
           />
           <textarea
             id="mood-search"
+            name="anime-mood-search"
             value={query}
             autoFocus={autoFocus}
+            autoComplete="off"
+            autoCorrect="off"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
